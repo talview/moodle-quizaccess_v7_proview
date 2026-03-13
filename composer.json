@@ -19,7 +19,7 @@
   },
   "scripts": {
     "lint": "parallel-lint --exclude vendor .",
-    "cs": "phpcs --standard=moodle --extensions=php .",
+    "cs": "phpcs --standard=moodle --extensions=php --no-cache .",
     "cs-fix": "phpcbf --standard=moodle --extensions=php .",
     "analyse": "phpstan analyse --memory-limit=512M",
     "check": [
