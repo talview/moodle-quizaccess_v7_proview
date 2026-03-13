@@ -1,0 +1,35 @@
+parameters:
+    # Level 2 is the highest that's practical without the full Moodle codebase
+    # as a bootstrap. moodle-plugin-ci runs PHPStan with Moodle available, so
+    # CI may catch more than local analysis.
+    level: 2
+
+    paths:
+        - .
+
+    excludePaths:
+        - vendor
+        - node_modules
+        - amd/build
+
+    # Moodle constants defined at runtime — tell PHPStan to treat them as dynamic.
+    dynamicConstantNames:
+        - MOODLE_INTERNAL
+        - CONTEXT_MODULE
+        - CONTEXT_COURSE
+        - CONTEXT_SYSTEM
+        - CAP_ALLOW
+        - CAP_PREVENT
+        - CAP_PROHIBIT
+        - MATURITY_ALPHA
+        - MATURITY_BETA
+        - MATURITY_RC
+        - MATURITY_STABLE
+
+    # Moodle core classes are only available inside a real Moodle install.
+    # moodle-plugin-ci provides the bootstrap; locally we suppress these.
+    ignoreErrors:
+        - '#Class mod_quiz\\local\\access_rule_base not found#'
+        - '#Class mod_quiz\\quiz_settings not found#'
+        - '#Class core_privacy\\local\\(metadata|request)\\.*not found#'
+        - '#Function defined\(\) not found#'
