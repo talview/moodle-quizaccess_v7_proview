@@ -25,6 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Talview Proview proctoring';
+$string['proview_api_error'] = 'Proview API error: {$a}';
+$string['proview_auth_failed'] = 'Failed to authenticate with Proview LMS Connector.';
 $string['privacy:metadata:talview_proview'] = 'Data sent to Talview Proview for proctoring purposes.';
 $string['privacy:metadata:talview_proview:email'] = 'The candidate\'s email address.';
 $string['privacy:metadata:talview_proview:fullname'] = 'The candidate\'s full name.';
