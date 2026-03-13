@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<ruleset name="quizaccess_proview">
+    <description>Moodle coding standard for quizaccess_proview</description>
+
+    <rule ref="moodle"/>
+
+    <!-- Source files -->
+    <file>.</file>
+
+    <!-- Exclusions -->
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>node_modules/*</exclude-pattern>
+    <exclude-pattern>amd/build/*</exclude-pattern>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+</ruleset>
