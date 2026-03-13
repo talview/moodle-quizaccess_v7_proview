@@ -64,7 +64,6 @@ class provider implements
      *
      * @param int $userid The user to search.
      * @return contextlist The contextlist containing the list of contexts used in this plugin.
-
      */
     public static function get_contexts_for_userid(int $userid): contextlist {
         return new contextlist();
@@ -74,7 +73,6 @@ class provider implements
      * Export all user data for the specified user in the contexts.
      *
      * @param approved_contextlist $contextlist The approved contexts to export for.
-
      */
     public static function export_user_data(approved_contextlist $contextlist): void {
         // No personal data stored locally — proctoring data held by Talview Proview.
@@ -84,7 +82,6 @@ class provider implements
      * Delete all personal data for all users in the specified context.
      *
      * @param \context $context The context to delete in.
-
      */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         // No personal data stored locally.
@@ -94,7 +91,6 @@ class provider implements
      * Delete all user data for the specified user in the contexts.
      *
      * @param approved_contextlist $contextlist The approved contexts and user information to delete.
-
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         // No personal data stored locally.
