@@ -27,6 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 $plugin->component  = 'quizaccess_proview';
 $plugin->version    = 2026031000;
 $plugin->requires   = 2024042200; // Moodle 4.5.
-$plugin->supported  = [405, 500, 501];
+$plugin->supported  = [405, 501]; // Moodle 4.5 to 5.1.
 $plugin->maturity   = MATURITY_ALPHA;
 $plugin->release    = '0.1.0';
