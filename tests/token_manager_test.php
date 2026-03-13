@@ -27,8 +27,10 @@ namespace quizaccess_proview;
 
 /**
  * Unit tests for {@see \quizaccess_proview\token_manager}.
+ *
+ * @covers \quizaccess_proview\token_manager
  */
-class token_manager_test extends \advanced_testcase {
+final class token_manager_test extends \advanced_testcase {
     /** @var string Base URL of the Proview admin service used in test config. */
     private const ADMIN_URL = 'https://appv7.proview.io/embedded';
 

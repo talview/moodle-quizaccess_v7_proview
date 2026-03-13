@@ -25,13 +25,13 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Talview Proview proctoring';
-$string['proview_api_error'] = 'Proview API error: {$a}';
-$string['proview_auth_failed'] = 'Failed to authenticate with Proview LMS Connector.';
 $string['privacy:metadata:talview_proview'] = 'Data sent to Talview Proview for proctoring purposes.';
 $string['privacy:metadata:talview_proview:email'] = 'The candidate\'s email address.';
 $string['privacy:metadata:talview_proview:fullname'] = 'The candidate\'s full name.';
 $string['privacy:metadata:talview_proview:quizid'] = 'The ID of the quiz being proctored.';
 $string['privacy:metadata:talview_proview:userid'] = 'The Moodle user ID of the candidate.';
+$string['proview_api_error'] = 'Proview API error: {$a}';
+$string['proview_auth_failed'] = 'Failed to authenticate with Proview LMS Connector.';
 $string['proview_account_name'] = 'Account name';
 $string['proview_account_name_desc'] = 'Talview account name associated with this Moodle site.';
 $string['proview_admin_password'] = 'Admin password';

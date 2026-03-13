@@ -31,8 +31,10 @@ require_once(__DIR__ . '/fixtures/api_testable.php');
 
 /**
  * Unit tests for {@see \quizaccess_proview\api}.
+ *
+ * @covers \quizaccess_proview\api
  */
-class api_test extends \advanced_testcase {
+final class api_test extends \advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
         $this->resetAfterTest();
