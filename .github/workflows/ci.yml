@@ -1,6 +1,12 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
 
 jobs:
   ci:
@@ -69,7 +75,7 @@ jobs:
           echo "$(cd ci && pwd)/vendor/bin" >> $GITHUB_PATH
 
       - name: Install Moodle (${{ matrix.moodle-branch }}, ${{ matrix.database }})
-        run: moodle-plugin-ci install --plugin ./plugin --db-type=${{ matrix.database }}
+        run: moodle-plugin-ci install --plugin ${{ github.workspace }}/plugin --db-type=${{ matrix.database }}
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
