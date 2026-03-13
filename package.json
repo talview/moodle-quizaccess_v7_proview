@@ -1,0 +1,17 @@
+{
+  "name": "quizaccess-proview",
+  "private": true,
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "*.php": [
+      "vendor/bin/parallel-lint --no-colors",
+      "vendor/bin/phpcs --standard=moodle --no-cache"
+    ]
+  }
+}

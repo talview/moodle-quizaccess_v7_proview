@@ -25,8 +25,6 @@
 use mod_quiz\local\access_rule_base;
 use mod_quiz\quiz_settings;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Proview proctoring access rule for Moodle quizzes.
  *
@@ -34,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * quiz-level proctoring configuration.
  */
 class quizaccess_proview extends access_rule_base {
-
     /**
      * Return an appropriately configured instance of this rule, if it is applicable
      * to the given quiz, otherwise return null.
