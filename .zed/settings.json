@@ -1,0 +1,33 @@
+{
+  "languages": {
+    "PHP": {
+      "formatter": {
+        "external": {
+          "command": "vendor/bin/phpcbf",
+          "arguments": [
+            "--standard=moodle",
+            "{buffer_path}"
+          ]
+        }
+      },
+      "format_on_save": "on",
+      "language_servers": [
+        "intelephense"
+      ]
+    }
+  },
+  "lsp": {
+    "intelephense": {
+      "settings": {
+        "intelephense.diagnostics.enable": true,
+        "intelephense.diagnostics.undefinedTypes": false,
+        "intelephense.diagnostics.undefinedFunctions": false,
+        "intelephense.diagnostics.undefinedConstants": false,
+        "intelephense.diagnostics.undefinedClassConstants": false,
+        "intelephense.diagnostics.undefinedMethods": false,
+        "intelephense.diagnostics.undefinedProperties": false,
+        "intelephense.diagnostics.undefinedVariables": true
+      }
+    }
+  }
+}

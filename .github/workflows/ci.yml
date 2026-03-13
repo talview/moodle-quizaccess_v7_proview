@@ -75,7 +75,7 @@ jobs:
           echo "$(cd ci && pwd)/vendor/bin" >> $GITHUB_PATH
 
       - name: Install Moodle (${{ matrix.moodle-branch }}, ${{ matrix.database }})
-        run: moodle-plugin-ci install --plugin ${{ github.workspace }}/plugin --db-type=${{ matrix.database }}
+        run: moodle-plugin-ci install --plugin ${{ github.workspace }}/plugin --db-type=${{ matrix.database }} --db-host=127.0.0.1
         env:
           DB: ${{ matrix.database }}
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
