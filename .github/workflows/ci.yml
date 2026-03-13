@@ -131,37 +131,37 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep "\$plugin->version" version.php | grep -oP "'\K[^']+'" || grep -oP '[0-9]{10}' version.php | head -1)
+          VERSION=$(grep -oP '[0-9]{10}' version.php | head -1)
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "name=quizaccess_proview-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
-      - name: Create plugin ZIP
+      - name: Prepare plugin directory
         run: |
-          mkdir -p /tmp/quizaccess_proview
-          rsync -av --exclude='.git' \
-                    --exclude='.github' \
-                    --exclude='.husky' \
-                    --exclude='.zed' \
-                    --exclude='node_modules' \
-                    --exclude='vendor' \
-                    --exclude='CLAUDE.md' \
-                    --exclude='.gitignore' \
-                    --exclude='.phpcs.xml' \
-                    --exclude='composer.json' \
-                    --exclude='composer.lock' \
-                    --exclude='package.json' \
-                    --exclude='package-lock.json' \
-                    --exclude='phpmd.xml' \
-                    --exclude='phpstan.neon' \
-                    --exclude='phpunit.xml' \
-                    --exclude='tests' \
-                    ./ /tmp/quizaccess_proview/
-          cd /tmp
-          zip -r ${{ steps.version.outputs.name }}.zip quizaccess_proview/
+          mkdir -p /tmp/build/quizaccess_proview
+          rsync -a --exclude='.git' \
+                   --exclude='.github' \
+                   --exclude='.husky' \
+                   --exclude='.zed' \
+                   --exclude='node_modules' \
+                   --exclude='vendor' \
+                   --exclude='CLAUDE.md' \
+                   --exclude='.gitignore' \
+                   --exclude='.phpcs.xml' \
+                   --exclude='composer.json' \
+                   --exclude='composer.lock' \
+                   --exclude='package.json' \
+                   --exclude='package-lock.json' \
+                   --exclude='phpmd.xml' \
+                   --exclude='phpstan.neon' \
+                   --exclude='phpunit.xml' \
+                   --exclude='tests' \
+                   ./ /tmp/build/quizaccess_proview/
 
-      - name: Upload plugin ZIP
+      - name: Upload plugin artifact
+        # GitHub zips this directory on download — structure will be:
+        #   quizaccess_proview/version.php  <-- directly installable via Moodle admin UI
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.version.outputs.name }}
-          path: /tmp/${{ steps.version.outputs.name }}.zip
+          path: /tmp/build/
           retention-days: 30
