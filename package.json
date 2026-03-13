@@ -11,7 +11,8 @@
   "lint-staged": {
     "*.php": [
       "vendor/bin/parallel-lint --no-colors",
-      "vendor/bin/phpcs --standard=moodle --no-cache"
+      "vendor/bin/phpcs --standard=moodle --no-cache",
+      "bash -c 'vendor/bin/phpmd . text phpmd.xml --suffixes php || true'"
     ]
   }
 }

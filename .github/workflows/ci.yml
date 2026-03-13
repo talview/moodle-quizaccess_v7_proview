@@ -118,3 +118,50 @@ jobs:
           name: behat-faildump-${{ matrix.moodle-branch }}-php${{ matrix.php }}-${{ matrix.database }}
           path: ${{ github.workspace }}/moodledata/behat_dump
           retention-days: 7
+
+  build:
+    name: Build plugin ZIP
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep "\$plugin->version" version.php | grep -oP "'\K[^']+'" || grep -oP '[0-9]{10}' version.php | head -1)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "name=quizaccess_proview-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Create plugin ZIP
+        run: |
+          mkdir -p /tmp/quizaccess_proview
+          rsync -av --exclude='.git' \
+                    --exclude='.github' \
+                    --exclude='.husky' \
+                    --exclude='.zed' \
+                    --exclude='node_modules' \
+                    --exclude='vendor' \
+                    --exclude='CLAUDE.md' \
+                    --exclude='.gitignore' \
+                    --exclude='.phpcs.xml' \
+                    --exclude='composer.json' \
+                    --exclude='composer.lock' \
+                    --exclude='package.json' \
+                    --exclude='package-lock.json' \
+                    --exclude='phpmd.xml' \
+                    --exclude='phpstan.neon' \
+                    --exclude='phpunit.xml' \
+                    --exclude='tests' \
+                    ./ /tmp/quizaccess_proview/
+          cd /tmp
+          zip -r ${{ steps.version.outputs.name }}.zip quizaccess_proview/
+
+      - name: Upload plugin ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.name }}
+          path: /tmp/${{ steps.version.outputs.name }}.zip
+          retention-days: 30
