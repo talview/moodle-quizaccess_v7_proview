@@ -28,8 +28,6 @@ use core_privacy\local\metadata\collection;
 use core_privacy\local\request\contextlist;
 use core_privacy\local\request\approved_contextlist;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Privacy provider for quizaccess_proview.
  *
@@ -40,7 +38,6 @@ defined('MOODLE_INTERNAL') || die();
 class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\plugin\provider {
-
     /**
      * Return the fields which contain personal data.
      *
