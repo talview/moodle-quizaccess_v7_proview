@@ -75,7 +75,7 @@ final class token_manager_test extends \advanced_testcase {
      * Auth callable that tracks how many times it has been invoked.
      *
      * @param string $token  Token to return.
-     * @param int    &$count Reference incremented on each invocation.
+     * @param int    $count Reference incremented on each invocation.
      * @return callable
      */
     private function auth_counting(string $token, int &$count): callable {
