@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/quiz/accessrule/proview/db" VERSION="20260310" COMMENT="XMLDB file for Moodle mod/quiz/accessrule/proview"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="quizaccess_proview" COMMENT="Per-quiz Proview proctoring configuration">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to quiz.id"/>
+        <FIELD NAME="proctoringenabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="proctoringtype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false" COMMENT="none, ai, record_review, live"/>
+        <FIELD NAME="tsbenabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Talview Secure Browser enabled"/>
+        <FIELD NAME="candidateinstructions" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Instructions shown to candidate before quiz"/>
+        <FIELD NAME="blacklistedwindowssoftwares" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Comma-separated blacklisted Windows applications"/>
+        <FIELD NAME="blacklistedmacsoftwares" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Comma-separated blacklisted macOS applications"/>
+        <FIELD NAME="whitelistedwindowssoftwares" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Comma-separated whitelisted Windows applications"/>
+        <FIELD NAME="whitelistedmacsoftwares" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Comma-separated whitelisted macOS applications"/>
+        <FIELD NAME="referencelinks" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Reference links shown to candidate"/>
+        <FIELD NAME="minimizepermitted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether candidate can minimize browser"/>
+        <FIELD NAME="screenprotection" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Screen capture protection enabled"/>
+        <FIELD NAME="proview_token" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Proview session token (stored per quiz session)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizid" TYPE="unique" FIELDS="quizid"/>
+      </KEYS>
+    </TABLE>
+  </TABLES>
+</XMLDB>

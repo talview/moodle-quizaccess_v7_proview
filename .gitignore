@@ -1,0 +1,26 @@
+# Moodle development
+config.php
+config-dist.php
+
+# Composer
+vendor/
+composer.lock
+
+# Node / AMD build artefacts
+node_modules/
+amd/build/
+
+# PHPUnit / Behat
+.phpunit.result.cache
+/tests/behat/fixtures/
+
+# moodle-plugin-ci
+.moodle-plugin-ci.yml
+
+# IDE / OS
+.idea/
+.vscode/
+*.DS_Store
+*.swp
+*.swo
+Thumbs.db
