@@ -39,6 +39,8 @@ use core_privacy\tests\provider_testcase;
  * held by Talview's Proview service. Tests verify that the provider correctly
  * declares the external data location and that all GDPR action methods are
  * safe no-ops.
+ *
+ * @covers \quizaccess_proview\privacy\provider
  */
 final class provider_test extends provider_testcase {
     /**

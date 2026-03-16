@@ -37,6 +37,8 @@ use quizaccess_proview\tests\api_testable;
  *
  * All HTTP calls are intercepted by api_testable which overrides make_request().
  * No real network traffic is made during these tests.
+ *
+ * @covers \quizaccess_proview\api
  */
 final class api_test extends \advanced_testcase {
     protected function setUp(): void {

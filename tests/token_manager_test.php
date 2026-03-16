@@ -35,6 +35,8 @@ namespace quizaccess_proview;
  * Cache behaviour (hit / miss / invalidate) is exercised against Moodle's
  * real application cache — the database is reset after each test via
  * resetAfterTest().
+ *
+ * @covers \quizaccess_proview\token_manager
  */
 final class token_manager_test extends \advanced_testcase {
     /**
