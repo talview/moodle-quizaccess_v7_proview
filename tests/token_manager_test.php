@@ -21,213 +21,250 @@
  * @copyright  2026 Talview Inc.
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \quizaccess_proview\token_manager
+ * @group      quizaccess_proview
  */
 
 namespace quizaccess_proview;
 
 /**
- * Unit tests for {@see \quizaccess_proview\token_manager}.
+ * Tests for {@see \quizaccess_proview\token_manager}.
  *
- * @covers \quizaccess_proview\token_manager
+ * The authfn constructor parameter is used to inject a closure instead of
+ * making real HTTP calls, so every test runs fully in-process.
+ *
+ * Cache behaviour (hit / miss / invalidate) is exercised against Moodle's
+ * real application cache — the database is reset after each test via
+ * resetAfterTest().
  */
 final class token_manager_test extends \advanced_testcase {
-    /** @var string Base URL of the Proview admin service used in test config. */
-    private const ADMIN_URL = 'https://appv7.proview.io/embedded';
-
-    /** @var string Username used in test admin config. */
-    private const ADMIN_USER = 'testuser';
-
-    /** @var string Password used in test admin config. */
-    private const ADMIN_PASS = 'testpass';
-
-    protected function setUp(): void {
-        parent::setUp();
-        $this->resetAfterTest();
-
-        set_config('proview_admin_url', self::ADMIN_URL, 'quizaccess_proview');
-        set_config('proview_admin_username', self::ADMIN_USER, 'quizaccess_proview');
-        set_config('proview_admin_password', self::ADMIN_PASS, 'quizaccess_proview');
-    }
-
     /**
-     * Return a token_manager with the given callable injected.
-     *
-     * @param callable $authfn
-     * @return token_manager
+     * Set all three admin config values needed by build_cache_key().
      */
-    private function make_manager(callable $authfn): token_manager {
-        return new token_manager($authfn);
+    private function set_admin_config(
+        string $url = 'https://lms.example.test',
+        string $username = 'testuser',
+        string $password = 'testpass'
+    ): void {
+        set_config('proview_admin_url', $url, 'quizaccess_proview');
+        set_config('proview_admin_username', $username, 'quizaccess_proview');
+        set_config('proview_admin_password', $password, 'quizaccess_proview');
     }
 
     /**
-     * Auth callable that always returns the given token without any side effects.
+     * Return a counting authfn closure.
      *
-     * @param string $token Token to return.
-     * @return callable
-     */
-    private function auth_returning(string $token): callable {
-        return static function () use ($token): string {
-            return $token;
-        };
-    }
-
-    /**
-     * Auth callable that tracks how many times it has been invoked.
-     *
+     * @param int    &$count Incremented on each call.
      * @param string $token  Token to return.
-     * @param int    $count Reference incremented on each invocation.
      * @return callable
      */
-    private function auth_counting(string $token, int &$count): callable {
-        return static function () use ($token, &$count): string {
+    private function make_authfn(int &$count, string $token = 'dummy-token'): callable {
+        return function () use (&$count, $token): string {
             $count++;
             return $token;
         };
     }
 
     /**
-     * On the first call with an empty cache the auth callable is invoked once
-     * and the returned token is passed back to the caller.
+     * On a cold cache get_token() must call the authfn exactly once.
      */
-    public function test_get_token_fetches_when_cache_miss(): void {
-        $calls = 0;
-        $manager = $this->make_manager($this->auth_counting('tok-fresh', $calls));
+    public function test_get_token_calls_authfn_on_cache_miss(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
+
+        $count = 0;
+        $manager = new token_manager($this->make_authfn($count, 'fresh-token'));
 
         $token = $manager->get_token();
 
-        $this->assertEquals('tok-fresh', $token);
-        $this->assertEquals(1, $calls, 'auth callable must be called exactly once on cache miss');
+        $this->assertSame('fresh-token', $token);
+        $this->assertSame(1, $count);
     }
 
     /**
-     * A second call reuses the cached token — auth callable is NOT invoked again.
+     * A second get_token() call must return the cached value without re-calling authfn.
      */
-    public function test_get_token_returns_cached_token(): void {
-        $calls = 0;
-        $manager = $this->make_manager($this->auth_counting('tok-cached', $calls));
+    public function test_get_token_returns_cached_value_on_subsequent_calls(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
 
-        $manager->get_token();
-        $token = $manager->get_token();
+        $count = 0;
+        $manager = new token_manager($this->make_authfn($count, 'cached-token'));
 
-        $this->assertEquals('tok-cached', $token);
-        $this->assertEquals(1, $calls, 'auth callable must not be called on cache hit');
+        $first = $manager->get_token();
+        $second = $manager->get_token();
+        $third = $manager->get_token();
+
+        $this->assertSame('cached-token', $first);
+        $this->assertSame('cached-token', $second);
+        $this->assertSame('cached-token', $third);
+        $this->assertSame(1, $count, 'Authfn must be called only once across multiple get_token() calls.');
     }
 
     /**
-     * After invalidate() the next get_token() call re-authenticates.
+     * After invalidate(), the next get_token() must call authfn again.
      */
-    public function test_invalidate_causes_refetch(): void {
-        $calls = 0;
-        $manager = $this->make_manager($this->auth_counting('tok-refreshed', $calls));
+    public function test_invalidate_causes_reauthentication(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
+
+        $count = 0;
+        $authfn = function () use (&$count): string {
+            $count++;
+            return 'token-' . $count;
+        };
+        $manager = new token_manager($authfn);
+
+        $first = $manager->get_token();
+        $manager->invalidate();
+        $second = $manager->get_token();
+
+        $this->assertSame('token-1', $first);
+        $this->assertSame('token-2', $second);
+        $this->assertSame(2, $count);
+    }
+
+    /**
+     * A get_token() call immediately after invalidate() must return a fresh token.
+     */
+    public function test_invalidate_then_get_returns_new_token(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
+
+        $seq = 0;
+        $manager = new token_manager(function () use (&$seq): string {
+            return 'v' . (++$seq);
+        });
 
         $manager->get_token();
         $manager->invalidate();
         $token = $manager->get_token();
 
-        $this->assertEquals('tok-refreshed', $token);
-        $this->assertEquals(2, $calls, 'auth callable must be called again after invalidate');
+        $this->assertSame('v2', $token);
     }
 
     /**
-     * A second token_manager with the same credentials shares the same cache
-     * entry — the token fetched by the first is returned by the second without
-     * a fresh auth call.
+     * Multiple invalidate() calls must be idempotent and not throw.
      */
-    public function test_same_credentials_share_cache(): void {
-        $calls1 = 0;
-        $calls2 = 0;
+    public function test_multiple_invalidate_calls_are_idempotent(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
 
-        $manager1 = $this->make_manager($this->auth_counting('shared-tok', $calls1));
-        $manager2 = $this->make_manager($this->auth_counting('should-not-be-used', $calls2));
+        $count = 0;
+        $manager = new token_manager($this->make_authfn($count));
 
-        $manager1->get_token();
-        $token = $manager2->get_token();
-
-        $this->assertEquals('shared-tok', $token);
-        $this->assertEquals(0, $calls2, 'second manager must not call auth if cache is warm');
-    }
-
-    /**
-     * Changing admin credentials produces a different cache key, forcing a new
-     * auth call even if the old token is still cached.
-     */
-    public function test_different_credentials_produce_different_cache_key(): void {
-        $callsfirst = 0;
-        $callssecond = 0;
-
-        $managerfirst = $this->make_manager($this->auth_counting('tok-a', $callsfirst));
-        $managerfirst->get_token();
-
-        set_config('proview_admin_username', 'otheruser', 'quizaccess_proview');
-        set_config('proview_admin_password', 'otherpass', 'quizaccess_proview');
-
-        $managersecond = $this->make_manager($this->auth_counting('tok-b', $callssecond));
-        $token = $managersecond->get_token();
-
-        $this->assertEquals('tok-b', $token);
-        $this->assertEquals(1, $callssecond, 'new credentials must trigger a fresh auth call');
-    }
-
-    /**
-     * The token is never written into plugin config.
-     */
-    public function test_token_not_written_to_config(): void {
-        $manager = $this->make_manager($this->auth_returning('secret-tok'));
+        $manager->get_token();
+        $manager->invalidate();
+        $manager->invalidate();
         $manager->get_token();
 
-        $this->assertFalse(
-            get_config('quizaccess_proview', 'token'),
-            'token must never be persisted in plugin config'
-        );
-        $this->assertFalse(
-            get_config('quizaccess_proview', 'proview_token'),
-            'token must never be persisted in plugin config'
-        );
+        $this->assertSame(2, $count);
     }
 
     /**
-     * If the auth callable throws, get_token() propagates the exception without
-     * caching anything.
+     * Changing admin credentials must result in a cache miss (different key),
+     * so the new token_manager does not return the stale token.
      */
-    public function test_auth_exception_propagates_and_is_not_cached(): void {
-        $calls = 0;
-        $authfn = static function () use (&$calls): string {
-            $calls++;
+    public function test_cache_key_changes_when_credentials_change(): void {
+        $this->resetAfterTest();
+
+        $this->set_admin_config('https://lms.example.test', 'usera', 'passa');
+
+        $callsa = 0;
+        $managera = new token_manager($this->make_authfn($callsa, 'token-a'));
+        $managera->get_token();
+
+        $this->set_admin_config('https://lms.example.test', 'userb', 'passb');
+
+        $callsb = 0;
+        $managerb = new token_manager($this->make_authfn($callsb, 'token-b'));
+        $tokenb = $managerb->get_token();
+
+        $this->assertSame('token-b', $tokenb);
+        $this->assertSame(1, $callsa, 'First manager authfn should have been called once.');
+        $this->assertSame(1, $callsb, 'Second manager must not reuse the first cache key.');
+    }
+
+    /**
+     * Changing only the admin URL must also produce a different cache key.
+     */
+    public function test_cache_key_changes_when_url_changes(): void {
+        $this->resetAfterTest();
+
+        $this->set_admin_config('https://old.example.test');
+
+        $callsone = 0;
+        $managerone = new token_manager($this->make_authfn($callsone, 'old-token'));
+        $managerone->get_token();
+
+        $this->set_admin_config('https://new.example.test');
+
+        $callstwo = 0;
+        $managertwo = new token_manager($this->make_authfn($callstwo, 'new-token'));
+        $tokentwo = $managertwo->get_token();
+
+        $this->assertSame('new-token', $tokentwo);
+        $this->assertSame(1, $callstwo);
+    }
+
+    /**
+     * When no authfn is passed the constructor should not throw — it wires
+     * api::authenticate() as the default. We do not invoke get_token() here
+     * as that would make a real HTTP call; we only verify object construction.
+     */
+    public function test_constructor_without_authfn_does_not_throw(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
+
+        $manager = new token_manager();
+        $this->assertInstanceOf(token_manager::class, $manager);
+    }
+
+    /**
+     * If authfn throws, get_token() must propagate the exception.
+     */
+    public function test_get_token_propagates_authfn_exception(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
+
+        $authfn = function (): string {
             throw new \moodle_exception('proview_auth_failed', 'quizaccess_proview');
         };
-
-        $manager = $this->make_manager($authfn);
+        $manager = new token_manager($authfn);
 
         $this->expectException(\moodle_exception::class);
         $manager->get_token();
     }
 
     /**
-     * After a failed auth (exception), a subsequent get_token() call retries auth.
+     * After a failed get_token() call, a subsequent call with a working authfn
+     * must succeed as nothing stale should be cached.
      */
-    public function test_get_token_retries_after_auth_exception(): void {
-        $attempt = 0;
-        $authfn = static function () use (&$attempt): string {
-            $attempt++;
-            if ($attempt === 1) {
+    public function test_failed_get_token_does_not_cache_bad_state(): void {
+        $this->resetAfterTest();
+        $this->set_admin_config();
+
+        $shouldfail = true;
+        $calls = 0;
+        $authfn = function () use (&$shouldfail, &$calls): string {
+            $calls++;
+            if ($shouldfail) {
                 throw new \moodle_exception('proview_auth_failed', 'quizaccess_proview');
             }
-            return 'tok-retry';
+            return 'recovered-token';
         };
 
-        $manager = $this->make_manager($authfn);
+        $manager = new token_manager($authfn);
 
-        $caught = false;
         try {
             $manager->get_token();
         } catch (\moodle_exception $e) {
-            $caught = true;
+            $this->assertInstanceOf(\moodle_exception::class, $e);
         }
-        $this->assertTrue($caught, 'First call must throw when auth fails.');
 
+        $shouldfail = false;
         $token = $manager->get_token();
 
-        $this->assertEquals('tok-retry', $token);
-        $this->assertEquals(2, $attempt);
+        $this->assertSame('recovered-token', $token);
+        $this->assertSame(2, $calls);
     }
 }

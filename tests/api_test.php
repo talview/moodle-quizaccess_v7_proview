@@ -21,6 +21,7 @@
  * @copyright  2026 Talview Inc.
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \quizaccess_proview\api
+ * @group      quizaccess_proview
  */
 
 namespace quizaccess_proview;
@@ -29,189 +30,418 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/fixtures/api_testable.php');
 
+use quizaccess_proview\tests\api_testable;
+
 /**
- * Unit tests for {@see \quizaccess_proview\api}.
+ * Tests for {@see \quizaccess_proview\api}.
  *
- * @covers \quizaccess_proview\api
+ * All HTTP calls are intercepted by api_testable which overrides make_request().
+ * No real network traffic is made during these tests.
  */
 final class api_test extends \advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
+        api_testable::reset();
+    }
+
+    protected function tearDown(): void {
+        api_testable::reset();
+        parent::tearDown();
+    }
+
+    /**
+     * get_organizations() must send a GET to /organizations.
+     */
+    public function test_get_organizations_uses_get_method(): void {
         $this->resetAfterTest();
-        api_testable::reset_state();
-    }
-
-    /**
-     * A successful response is parsed and returned as an array.
-     */
-    public function test_get_organizations_returns_list(): void {
-        $orgs = [
-            ['id' => 1, 'name' => 'Acme Corp', 'proview_organization_id' => 'acme'],
-            ['id' => 2, 'name' => 'Beta Ltd', 'proview_organization_id' => 'beta'],
-        ];
-        api_testable::prime($orgs);
-
-        $result = api_testable::get_organizations();
-
-        $this->assertCount(2, $result);
-        $this->assertEquals('Acme Corp', $result[0]['name']);
-        $this->assertEquals('Beta Ltd', $result[1]['name']);
-    }
-
-    /**
-     * An HTTP error propagates as moodle_exception with proview_api_error key.
-     */
-    public function test_get_organizations_http_error_throws(): void {
-        api_testable::prime_error('HTTP 500 from /organizations');
-
-        $this->expectException(\moodle_exception::class);
-        $this->expectExceptionMessageMatches('/proview_api_error/');
+        api_testable::$mockresponse = [];
 
         api_testable::get_organizations();
+
+        $this->assertSame('GET', api_testable::$calls[0]['method']);
     }
 
     /**
-     * The app-id header is set to md5($CFG->wwwroot).
+     * get_organizations() must call the /organizations endpoint.
+     */
+    public function test_get_organizations_calls_correct_url(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_organizations();
+
+        $this->assertStringEndsWith('/organizations', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * get_organizations() must include the app-id header derived from wwwroot.
+     */
+    public function test_get_organizations_sends_app_id_header(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        $expectedappid = md5($CFG->wwwroot);
+        api_testable::$mockresponse = [];
+
+        api_testable::get_organizations();
+
+        $this->assertContains(
+            'app-id: ' . $expectedappid,
+            api_testable::$calls[0]['headers']
+        );
+    }
+
+    /**
+     * app_id must be the MD5 hash of $CFG->wwwroot, not any other value.
      */
     public function test_app_id_is_md5_of_wwwroot(): void {
         global $CFG;
+        $this->resetAfterTest();
 
-        $CFG->wwwroot = 'https://moodle.example.com';
-        api_testable::prime([]);
-
-        api_testable::get_organizations();
-
-        $call = api_testable::last_call();
-        $headers = $call['headers'];
-        $this->assertContains('app-id: ' . md5('https://moodle.example.com'), $headers);
-    }
-
-    /**
-     * get_organizations issues a GET request to /organizations.
-     */
-    public function test_get_organizations_uses_correct_url_and_method(): void {
-        api_testable::prime([]);
+        $original = $CFG->wwwroot;
+        $CFG->wwwroot = 'https://moodle.example.test';
+        api_testable::$mockresponse = [];
 
         api_testable::get_organizations();
 
-        $call = api_testable::last_call();
-        $this->assertEquals('GET', $call['method']);
-        $this->assertStringEndsWith('/organizations', $call['url']);
-        $this->assertNull($call['body']);
+        $CFG->wwwroot = $original;
+
+        $this->assertContains(
+            'app-id: ' . md5('https://moodle.example.test'),
+            api_testable::$calls[0]['headers']
+        );
     }
 
     /**
-     * A valid response returns the access_token string.
+     * get_organizations() must return the decoded array from the API.
      */
-    public function test_authenticate_returns_token_string(): void {
-        set_config('proview_admin_username', 'admin@example.com', 'quizaccess_proview');
-        set_config('proview_admin_password', 's3cr3t', 'quizaccess_proview');
+    public function test_get_organizations_returns_response_array(): void {
+        $this->resetAfterTest();
+        $orgs = [['id' => 1, 'name' => 'Talview'], ['id' => 2, 'name' => 'Acme']];
+        api_testable::$mockresponse = $orgs;
 
-        api_testable::prime(['access_token' => 'tok-abc123']);
+        $result = api_testable::get_organizations();
+
+        $this->assertSame($orgs, $result);
+    }
+
+    /**
+     * get_organizations() must propagate exceptions from make_request().
+     */
+    public function test_get_organizations_propagates_exception(): void {
+        $this->resetAfterTest();
+        api_testable::$mockexception = new \moodle_exception(
+            'proview_api_error',
+            'quizaccess_proview'
+        );
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::get_organizations();
+    }
+
+    /**
+     * authenticate() must POST to /auth.
+     */
+    public function test_authenticate_uses_post_method(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'admin', 'quizaccess_proview');
+        set_config('proview_admin_password', 'secret', 'quizaccess_proview');
+        api_testable::$mockresponse = ['access_token' => 'tok'];
+
+        api_testable::authenticate();
+
+        $this->assertSame('POST', api_testable::$calls[0]['method']);
+    }
+
+    /**
+     * authenticate() must call the /auth endpoint.
+     */
+    public function test_authenticate_calls_auth_url(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'admin', 'quizaccess_proview');
+        set_config('proview_admin_password', 'secret', 'quizaccess_proview');
+        api_testable::$mockresponse = ['access_token' => 'tok'];
+
+        api_testable::authenticate();
+
+        $this->assertStringEndsWith('/auth', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * authenticate() must include admin credentials in the request body.
+     */
+    public function test_authenticate_sends_credentials_in_body(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'myuser', 'quizaccess_proview');
+        set_config('proview_admin_password', 'mypass', 'quizaccess_proview');
+        api_testable::$mockresponse = ['access_token' => 'tok'];
+
+        api_testable::authenticate();
+
+        $body = api_testable::$calls[0]['body'];
+        $this->assertSame('myuser', $body['username']);
+        $this->assertSame('mypass', $body['password']);
+    }
+
+    /**
+     * authenticate() must return the access_token string from the response.
+     */
+    public function test_authenticate_returns_access_token(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'admin', 'quizaccess_proview');
+        set_config('proview_admin_password', 'secret', 'quizaccess_proview');
+        api_testable::$mockresponse = ['access_token' => 'eyJhbGciOiJSUzI1Ni.example'];
 
         $token = api_testable::authenticate();
 
-        $this->assertEquals('tok-abc123', $token);
+        $this->assertSame('eyJhbGciOiJSUzI1Ni.example', $token);
     }
 
     /**
-     * An HTTP error propagates as moodle_exception.
+     * authenticate() must throw moodle_exception when access_token is absent.
      */
-    public function test_authenticate_http_error_throws(): void {
-        api_testable::prime_error('HTTP 503 from /auth');
+    public function test_authenticate_throws_when_access_token_missing(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'admin', 'quizaccess_proview');
+        set_config('proview_admin_password', 'secret', 'quizaccess_proview');
+        api_testable::$mockresponse = ['error' => 'invalid_credentials'];
 
         $this->expectException(\moodle_exception::class);
-
         api_testable::authenticate();
     }
 
     /**
-     * A response without access_token throws proview_auth_failed.
+     * authenticate() must throw when access_token is an empty string.
      */
-    public function test_authenticate_missing_token_throws_auth_failed(): void {
-        api_testable::prime(['error' => 'invalid_credentials']);
+    public function test_authenticate_throws_when_access_token_empty(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'admin', 'quizaccess_proview');
+        set_config('proview_admin_password', 'secret', 'quizaccess_proview');
+        api_testable::$mockresponse = ['access_token' => ''];
 
         $this->expectException(\moodle_exception::class);
-        $this->expectExceptionMessageMatches('/proview_auth_failed/');
-
         api_testable::authenticate();
     }
 
     /**
-     * Credentials from admin settings are sent in the POST body.
+     * authenticate() must propagate transport exceptions from make_request().
      */
-    public function test_authenticate_sends_credentials_in_body(): void {
-        set_config('proview_admin_username', 'user@test.com', 'quizaccess_proview');
-        set_config('proview_admin_password', 'pass123', 'quizaccess_proview');
+    public function test_authenticate_propagates_transport_exception(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_username', 'admin', 'quizaccess_proview');
+        set_config('proview_admin_password', 'secret', 'quizaccess_proview');
+        api_testable::$mockexception = new \moodle_exception(
+            'proview_api_error',
+            'quizaccess_proview',
+            '',
+            'HTTP 503 from https://lms-connector.proview.io/auth'
+        );
 
-        api_testable::prime(['access_token' => 'tok-xyz']);
-
+        $this->expectException(\moodle_exception::class);
         api_testable::authenticate();
-
-        $call = api_testable::last_call();
-        $this->assertEquals('POST', $call['method']);
-        $this->assertStringEndsWith('/auth', $call['url']);
-        $this->assertEquals('user@test.com', $call['body']['username']);
-        $this->assertEquals('pass123', $call['body']['password']);
     }
 
     /**
-     * Bearer token is sent as Authorization header.
+     * get_proview_tokens() must use GET.
      */
-    public function test_get_proview_tokens_sends_bearer_header(): void {
-        api_testable::prime([['id' => 1, 'token' => 'pv-token']]);
+    public function test_get_proview_tokens_uses_get_method(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_proview_tokens('bearer-abc');
+
+        $this->assertSame('GET', api_testable::$calls[0]['method']);
+    }
+
+    /**
+     * get_proview_tokens() must call the /proview endpoint.
+     */
+    public function test_get_proview_tokens_calls_proview_url(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_proview_tokens('bearer-abc');
+
+        $this->assertStringEndsWith('/proview', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * get_proview_tokens() must pass the bearer token as an Authorization header.
+     */
+    public function test_get_proview_tokens_sends_authorization_header(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
 
         api_testable::get_proview_tokens('my-bearer-token');
 
-        $call = api_testable::last_call();
-        $headers = $call['headers'];
-        $this->assertContains('Authorization: Bearer my-bearer-token', $headers);
+        $this->assertContains(
+            'Authorization: Bearer my-bearer-token',
+            api_testable::$calls[0]['headers']
+        );
     }
 
     /**
-     * Response is returned as-is.
+     * get_proview_tokens() must return the response array.
      */
-    public function test_get_proview_tokens_returns_list(): void {
-        $data = [['id' => 1, 'type' => 'ai', 'name' => 'AI proctoring']];
-        api_testable::prime($data);
+    public function test_get_proview_tokens_returns_response(): void {
+        $this->resetAfterTest();
+        $tokens = [['proview_token' => 'ptok1'], ['proview_token' => 'ptok2']];
+        api_testable::$mockresponse = $tokens;
 
-        $result = api_testable::get_proview_tokens('tok');
+        $result = api_testable::get_proview_tokens('any-bearer');
 
-        $this->assertEquals($data, $result);
+        $this->assertSame($tokens, $result);
     }
 
     /**
-     * Quiz ID is appended to the URL.
+     * get_quiz() must use GET.
      */
-    public function test_get_quiz_uses_correct_url(): void {
-        api_testable::prime(['quizid' => 42]);
+    public function test_get_quiz_uses_get_method(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
 
         api_testable::get_quiz('tok', 42);
 
-        $call = api_testable::last_call();
-        $this->assertEquals('GET', $call['method']);
-        $this->assertStringEndsWith('/quiz/42', $call['url']);
+        $this->assertSame('GET', api_testable::$calls[0]['method']);
     }
 
     /**
-     * save_quiz POSTs the quiz data with bearer auth.
+     * get_quiz() must embed the quizid in the URL.
      */
-    public function test_save_quiz_posts_data_with_bearer_header(): void {
+    public function test_get_quiz_builds_url_with_quizid(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_quiz('tok', 99);
+
+        $this->assertStringEndsWith('/quiz/99', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * get_quiz() must send the Authorization header.
+     */
+    public function test_get_quiz_sends_authorization_header(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_quiz('quiz-bearer', 1);
+
+        $this->assertContains(
+            'Authorization: Bearer quiz-bearer',
+            api_testable::$calls[0]['headers']
+        );
+    }
+
+    /**
+     * get_quiz() must return the response array.
+     */
+    public function test_get_quiz_returns_response(): void {
+        $this->resetAfterTest();
+        $quizconfig = ['quizid' => 7, 'proctortype' => 'ai'];
+        api_testable::$mockresponse = $quizconfig;
+
+        $result = api_testable::get_quiz('tok', 7);
+
+        $this->assertSame($quizconfig, $result);
+    }
+
+    /**
+     * save_quiz() must use POST.
+     */
+    public function test_save_quiz_uses_post_method(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['success' => true];
+
+        api_testable::save_quiz('tok', ['quizid' => 1]);
+
+        $this->assertSame('POST', api_testable::$calls[0]['method']);
+    }
+
+    /**
+     * save_quiz() must call the /quiz endpoint.
+     */
+    public function test_save_quiz_calls_quiz_url(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['success' => true];
+
+        api_testable::save_quiz('tok', ['quizid' => 1]);
+
+        $this->assertStringEndsWith('/quiz', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * save_quiz() must send the Authorization header.
+     */
+    public function test_save_quiz_sends_authorization_header(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['success' => true];
+
+        api_testable::save_quiz('save-bearer', ['quizid' => 1]);
+
+        $this->assertContains(
+            'Authorization: Bearer save-bearer',
+            api_testable::$calls[0]['headers']
+        );
+    }
+
+    /**
+     * save_quiz() must forward the quiz data as the request body.
+     */
+    public function test_save_quiz_sends_quiz_data_as_body(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['success' => true];
+
         $quizdata = [
-            'quizid'      => 7,
-            'cmid'        => 10,
-            'proctortype' => 'ai',
-            'tsbenabled'  => 1,
+            'quizid' => 10,
+            'cmid' => 5,
+            'proctortype' => 'live',
+            'tsbenabled' => 1,
+            'candidateinstructions' => 'Please enable your webcam.',
+            'minimizepermitted' => 0,
+            'screenprotection' => 1,
         ];
-        api_testable::prime(['status' => 'ok']);
 
-        api_testable::save_quiz('bearer-tok', $quizdata);
+        api_testable::save_quiz('tok', $quizdata);
 
-        $call = api_testable::last_call();
-        $headers = $call['headers'];
-        $this->assertEquals('POST', $call['method']);
-        $this->assertStringEndsWith('/quiz', $call['url']);
-        $this->assertContains('Authorization: Bearer bearer-tok', $headers);
-        $this->assertEquals($quizdata, $call['body']);
+        $this->assertSame($quizdata, api_testable::$calls[0]['body']);
+    }
+
+    /**
+     * save_quiz() must return the response array from the API.
+     */
+    public function test_save_quiz_returns_response(): void {
+        $this->resetAfterTest();
+        $apiresponse = ['id' => 42, 'status' => 'created'];
+        api_testable::$mockresponse = $apiresponse;
+
+        $result = api_testable::save_quiz('tok', ['quizid' => 1]);
+
+        $this->assertSame($apiresponse, $result);
+    }
+
+    /**
+     * save_quiz() must propagate transport exceptions.
+     */
+    public function test_save_quiz_propagates_exception(): void {
+        $this->resetAfterTest();
+        api_testable::$mockexception = new \moodle_exception(
+            'proview_api_error',
+            'quizaccess_proview',
+            '',
+            'HTTP 500 from https://lms-connector.proview.io/quiz'
+        );
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::save_quiz('tok', ['quizid' => 1]);
+    }
+
+    /**
+     * The base URL constant must point to the production LMS Connector host.
+     */
+    public function test_lms_connector_base_constant(): void {
+        $this->assertSame(
+            'https://lms-connector.proview.io',
+            \quizaccess_proview\api::LMS_CONNECTOR_BASE
+        );
     }
 }

@@ -15,88 +15,82 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Test double for quizaccess_proview\api.
+ * Test fixture: controllable subclass of api for unit tests.
  *
  * @package    quizaccess_proview
  * @copyright  2026 Talview Inc.
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace quizaccess_proview;
+namespace quizaccess_proview\tests;
 
 /**
- * Subclass of api that overrides make_request() so no real HTTP calls are made.
+ * Test double for {@see \quizaccess_proview\api}.
+ *
+ * Overrides make_request() so unit tests never touch the network.
+ * Configure the static properties before each assertion, then call reset()
+ * in tearDown / setUp.
  *
  * Usage:
- *   api_testable::prime(['key' => 'value']);    // next call returns this array
- *   api_testable::prime_error('HTTP 500 ...');  // next call throws moodle_exception
- *   $call = api_testable::last_call();          // inspect method/url/headers/body
+ *   api_testable::$mockresponse = ['access_token' => 'tok'];
+ *   $token = api_testable::authenticate();
+ *
+ * To simulate a transport failure:
+ *   api_testable::$mockexception = new \moodle_exception('proview_api_error', 'quizaccess_proview');
+ *   api_testable::get_organizations(); // throws.
  */
-class api_testable extends api {
-    /** @var array|null Preset return value for the next make_request call. */
-    private static ?array $nextresponse = null;
-
-    /** @var string|null If set, make_request throws with this detail string. */
-    private static ?string $nexterror = null;
-
-    /** @var array|null Arguments captured from the last make_request call. */
-    private static ?array $lastcall = null;
+class api_testable extends \quizaccess_proview\api {
+    /**
+     * @var array|null Preset decoded-JSON response returned by make_request().
+     *                 Null means return an empty array.
+     */
+    public static ?array $mockresponse = null;
 
     /**
-     * Prime a successful response for the next call.
-     *
-     * @param array $response Response to return.
+     * @var \Throwable|null When non-null, make_request() throws this instead of
+     *                      returning a response.
      */
-    public static function prime(array $response): void {
-        self::$nextresponse = $response;
-        self::$nexterror    = null;
-    }
+    public static ?\Throwable $mockexception = null;
 
     /**
-     * Prime an error for the next call.
-     *
-     * @param string $detail Error detail string included in the moodle_exception.
+     * @var array[] Chronological log of every make_request() invocation.
+     *              Each entry: ['method'=>string, 'url'=>string,
+     *                           'headers'=>string[], 'body'=>array|null].
      */
-    public static function prime_error(string $detail): void {
-        self::$nexterror    = $detail;
-        self::$nextresponse = null;
-    }
-
-    /**
-     * Return the arguments captured by the last make_request invocation.
-     *
-     * @return array|null Keys: method, url, headers, body.
-     */
-    public static function last_call(): ?array {
-        return self::$lastcall;
-    }
+    public static array $calls = [];
 
     /**
      * Reset all static state between tests.
      */
-    public static function reset_state(): void {
-        self::$nextresponse = null;
-        self::$nexterror    = null;
-        self::$lastcall     = null;
+    public static function reset(): void {
+        static::$mockresponse  = null;
+        static::$mockexception = null;
+        static::$calls         = [];
     }
 
     /**
-     * Override of the HTTP transport — returns preset data without making real HTTP calls.
+     * Intercept HTTP calls: record the invocation, then return the preset
+     * response or throw the preset exception.
      *
-     * @param string     $method  HTTP method.
-     * @param string     $url     Request URL.
-     * @param string[]   $headers Request headers.
-     * @param array|null $body    Request body.
-     * @return array Preset response array.
-     * @throws \moodle_exception When prime_error() was called.
+     * {@inheritdoc}
      */
-    protected static function make_request(string $method, string $url, array $headers, ?array $body): array {
-        self::$lastcall = compact('method', 'url', 'headers', 'body');
+    protected static function make_request(
+        string $method,
+        string $url,
+        array $headers,
+        ?array $body
+    ): array {
+        static::$calls[] = [
+            'method'  => $method,
+            'url'     => $url,
+            'headers' => $headers,
+            'body'    => $body,
+        ];
 
-        if (self::$nexterror !== null) {
-            throw new \moodle_exception('proview_api_error', 'quizaccess_proview', '', self::$nexterror);
+        if (static::$mockexception !== null) {
+            throw static::$mockexception;
         }
 
-        return self::$nextresponse ?? [];
+        return static::$mockresponse ?? [];
     }
 }
