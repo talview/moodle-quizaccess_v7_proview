@@ -201,6 +201,11 @@ class api {
             );
         }
 
+        debugging(
+            'quizaccess_proview: API response [' . $method . ' ' . $url . '] HTTP ' . $httpstatus . ': ' . $raw,
+            DEBUG_DEVELOPER
+        );
+
         $decoded = json_decode($raw, true);
 
         if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
