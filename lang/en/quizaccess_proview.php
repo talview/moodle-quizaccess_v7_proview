@@ -50,3 +50,40 @@ $string['settings_heading_callbacks'] = 'Callback authentication';
 $string['settings_heading_callbacks_desc'] = 'Credentials used to authenticate inbound callback requests from Talview.';
 $string['settings_heading_connection'] = 'Proview connection';
 $string['settings_heading_connection_desc'] = 'Enter the Proview service URLs and credentials provided by Talview.';
+
+// Quiz-level proctoring form.
+$string['proview_proctoring_header'] = 'Proview Proctoring';
+$string['proctoringenabled'] = 'Enable Proview proctoring';
+$string['proctoringenabled_help'] = 'Tick this box to activate Proview proctoring for this quiz.';
+$string['organizationid'] = 'Organisation';
+$string['org_unavailable'] = 'Organisation name unavailable (check LMS Connector settings)';
+$string['proview_token'] = 'Proview token';
+$string['proview_token_help'] = 'Select the Proview token configuration to use for this quiz. The list is fetched from the LMS Connector.';
+$string['proctoringtype'] = 'Proctoring type';
+$string['proctoringtype_help'] = 'Choose how this quiz will be proctored: no proctoring, AI-based review, recorded session review, or live invigilator.';
+$string['eventschedulingtype'] = 'Event scheduling type';
+$string['eventschedulingtype_help'] = 'Enter the scheduling type identifier provided by Talview for this organisation.';
+$string['proctorinstructions'] = 'Proctor instructions';
+$string['proctorinstructions_help'] = 'Instructions shown to the invigilator before the proctoring session begins.';
+$string['candidateinstructions'] = 'Candidate instructions';
+$string['candidateinstructions_help'] = 'Instructions shown to the candidate before the Proview session starts.';
+$string['referencelinks'] = 'Reference links';
+$string['referencelinks_help'] = 'Enter one reference link per line using markdown format: [Label](https://example.com)';
+$string['invalid_reference_links'] = 'Each reference link must be on its own line in the format: [Label](https://example.com)';
+$string['securebrowser_header'] = 'Secure Browser';
+$string['tsbenabled'] = 'Enable Talview Secure Browser';
+$string['tsbenabled_help'] = 'When enabled, quiz launches through the Talview Secure Browser.';
+$string['blacklistedwindowssoftwares'] = 'Blacklisted Windows applications';
+$string['blacklistedmacsoftwares'] = 'Blacklisted macOS applications';
+$string['whitelistedwindowssoftwares'] = 'Whitelisted Windows applications';
+$string['whitelistedmacsoftwares'] = 'Whitelisted macOS applications';
+$string['minimizepermitted'] = 'Allow minimise';
+$string['minimizepermitted_help'] = 'When ticked, the candidate may minimise the browser window during the quiz.';
+$string['screenprotection'] = 'Screen capture protection';
+$string['screenprotection_help'] = 'When enabled, screen-capture and recording tools are blocked during the quiz.';
+
+// Proctoring type option labels.
+$string['noproctor'] = 'No proctoring';
+$string['ai_proctor'] = 'AI proctoring';
+$string['record_review'] = 'Record and review';
+$string['live_proctor'] = 'Live proctoring';
