@@ -31,13 +31,19 @@ namespace quizaccess_proview;
  * All HTTP calls use Moodle's built-in {@see \curl} wrapper.
  */
 class api {
-    /** Base URL of the LMS Connector service. */
-    const LMS_CONNECTOR_BASE = 'https://lms-connector.proview.io';
+    /**
+     * Return the LMS Connector base URL from admin settings.
+     *
+     * @return string Configured callback URL (no trailing slash).
+     */
+    protected static function get_base_url(): string {
+        return (string) get_config('quizaccess_proview', 'proview_callback_url');
+    }
 
     /**
      * Fetch the list of organisations for this Moodle site.
      *
-     * GET /organizations
+     * GET /organization/application
      * Header: app-id: md5($CFG->wwwroot)
      *
      * @return array[] Array of organisation objects.
@@ -46,7 +52,7 @@ class api {
     public static function get_organizations(): array {
         global $CFG;
 
-        $url     = self::LMS_CONNECTOR_BASE . '/organizations';
+        $url     = static::get_base_url() . '/organization/application';
         $appid   = md5($CFG->wwwroot);
         $headers = ['app-id: ' . $appid];
 
@@ -67,7 +73,7 @@ class api {
         $username = (string) get_config('quizaccess_proview', 'proview_admin_username');
         $password = (string) get_config('quizaccess_proview', 'proview_admin_password');
 
-        $url  = self::LMS_CONNECTOR_BASE . '/auth';
+        $url  = static::get_base_url() . '/auth';
         $body = ['username' => $username, 'password' => $password];
 
         $response = static::make_request('POST', $url, [], $body);
@@ -85,7 +91,7 @@ class api {
     /**
      * Fetch Proview token configurations for this site.
      *
-     * GET /proview
+     * GET /proview/token
      * Header: Authorization: Bearer {bearertoken}
      *
      * @param string $bearertoken Valid LMS Connector bearer token.
@@ -93,7 +99,7 @@ class api {
      * @throws \moodle_exception On HTTP error.
      */
     public static function get_proview_tokens(string $bearertoken): array {
-        $url     = self::LMS_CONNECTOR_BASE . '/proview';
+        $url     = static::get_base_url() . '/proview/token';
         $headers = ['Authorization: Bearer ' . $bearertoken];
 
         return static::make_request('GET', $url, $headers, null);
@@ -111,7 +117,7 @@ class api {
      * @throws \moodle_exception On HTTP error.
      */
     public static function get_quiz(string $bearertoken, int $quizid): array {
-        $url     = self::LMS_CONNECTOR_BASE . '/quiz/' . $quizid;
+        $url     = static::get_base_url() . '/quiz/' . $quizid;
         $headers = ['Authorization: Bearer ' . $bearertoken];
 
         return static::make_request('GET', $url, $headers, null);
@@ -136,7 +142,7 @@ class api {
      * @throws \moodle_exception On HTTP error.
      */
     public static function save_quiz(string $bearertoken, array $quizdata): array {
-        $url     = self::LMS_CONNECTOR_BASE . '/quiz';
+        $url     = static::get_base_url() . '/quiz';
         $headers = ['Authorization: Bearer ' . $bearertoken];
 
         return static::make_request('POST', $url, $headers, $quizdata);

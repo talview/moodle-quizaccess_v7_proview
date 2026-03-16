@@ -43,6 +43,8 @@ use quizaccess_proview\tests\api_testable;
 final class api_test extends \advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
+        $this->resetAfterTest();
+        set_config('proview_callback_url', 'https://lms-connector.proview.io', 'quizaccess_proview');
         api_testable::reset();
     }
 
@@ -64,7 +66,7 @@ final class api_test extends \advanced_testcase {
     }
 
     /**
-     * get_organizations() must call the /organizations endpoint.
+     * get_organizations() must call the /organization/application endpoint.
      */
     public function test_get_organizations_calls_correct_url(): void {
         $this->resetAfterTest();
@@ -72,7 +74,7 @@ final class api_test extends \advanced_testcase {
 
         api_testable::get_organizations();
 
-        $this->assertStringEndsWith('/organizations', api_testable::$calls[0]['url']);
+        $this->assertStringEndsWith('/organization/application', api_testable::$calls[0]['url']);
     }
 
     /**
@@ -256,7 +258,7 @@ final class api_test extends \advanced_testcase {
     }
 
     /**
-     * get_proview_tokens() must call the /proview endpoint.
+     * get_proview_tokens() must call the /proview/token endpoint.
      */
     public function test_get_proview_tokens_calls_proview_url(): void {
         $this->resetAfterTest();
@@ -264,7 +266,7 @@ final class api_test extends \advanced_testcase {
 
         api_testable::get_proview_tokens('bearer-abc');
 
-        $this->assertStringEndsWith('/proview', api_testable::$calls[0]['url']);
+        $this->assertStringEndsWith('/proview/token', api_testable::$calls[0]['url']);
     }
 
     /**
@@ -438,12 +440,18 @@ final class api_test extends \advanced_testcase {
     }
 
     /**
-     * The base URL constant must point to the production LMS Connector host.
+     * get_organizations() must build the URL from the proview_callback_url config value.
      */
-    public function test_lms_connector_base_constant(): void {
-        $this->assertSame(
-            'https://lms-connector.proview.io',
-            \quizaccess_proview\api::LMS_CONNECTOR_BASE
+    public function test_get_organizations_uses_callback_url_from_config(): void {
+        $this->resetAfterTest();
+        set_config('proview_callback_url', 'https://custom.lms-connector.example.test', 'quizaccess_proview');
+        api_testable::$mockresponse = [];
+
+        api_testable::get_organizations();
+
+        $this->assertStringStartsWith(
+            'https://custom.lms-connector.example.test',
+            api_testable::$calls[0]['url']
         );
     }
 }

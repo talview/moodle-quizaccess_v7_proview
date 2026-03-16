@@ -40,18 +40,18 @@ namespace quizaccess_proview;
  */
 final class token_manager_test extends \advanced_testcase {
     /**
-     * Set all three admin config values needed by build_cache_key().
+     * Set all three config values needed by build_cache_key().
      *
-     * @param string $url      Admin URL config value.
+     * @param string $url      LMS Connector callback URL config value.
      * @param string $username Admin username config value.
      * @param string $password Admin password config value.
      */
     private function set_admin_config(
-        string $url = 'https://lms.example.test',
+        string $url = 'https://lms-connector.proview.io',
         string $username = 'testuser',
         string $password = 'testpass'
     ): void {
-        set_config('proview_admin_url', $url, 'quizaccess_proview');
+        set_config('proview_callback_url', $url, 'quizaccess_proview');
         set_config('proview_admin_username', $username, 'quizaccess_proview');
         set_config('proview_admin_password', $password, 'quizaccess_proview');
     }
@@ -173,13 +173,13 @@ final class token_manager_test extends \advanced_testcase {
     public function test_cache_key_changes_when_credentials_change(): void {
         $this->resetAfterTest();
 
-        $this->set_admin_config('https://lms.example.test', 'usera', 'passa');
+        $this->set_admin_config('https://lms-connector.proview.io', 'usera', 'passa');
 
         $callsa = 0;
         $managera = new token_manager($this->make_authfn($callsa, 'token-a'));
         $managera->get_token();
 
-        $this->set_admin_config('https://lms.example.test', 'userb', 'passb');
+        $this->set_admin_config('https://lms-connector.proview.io', 'userb', 'passb');
 
         $callsb = 0;
         $managerb = new token_manager($this->make_authfn($callsb, 'token-b'));

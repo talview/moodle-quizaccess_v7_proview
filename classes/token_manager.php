@@ -81,14 +81,15 @@ class token_manager {
     /**
      * Build a stable, credential-scoped cache key.
      *
-     * The key changes automatically when admin credentials are updated in settings.
+     * The key changes automatically when admin credentials or the callback URL
+     * are updated in settings.
      *
      * @return string MD5 cache key.
      */
     private function build_cache_key(): string {
-        $adminurl      = (string) get_config('quizaccess_proview', 'proview_admin_url');
+        $callbackurl   = (string) get_config('quizaccess_proview', 'proview_callback_url');
         $adminusername = (string) get_config('quizaccess_proview', 'proview_admin_username');
         $adminpassword = (string) get_config('quizaccess_proview', 'proview_admin_password');
-        return md5($adminurl . $adminusername . $adminpassword);
+        return md5($callbackurl . $adminusername . $adminpassword);
     }
 }
