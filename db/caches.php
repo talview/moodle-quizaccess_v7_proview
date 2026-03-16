@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin version metadata.
+ * Cache definitions for quizaccess_proview.
  *
  * @package    quizaccess_proview
  * @copyright  2026 Talview Inc.
@@ -24,9 +24,11 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component  = 'quizaccess_proview';
-$plugin->version    = 2026031001;
-$plugin->requires   = 2024042200;
-$plugin->supported  = [405, 501];
-$plugin->maturity   = MATURITY_ALPHA;
-$plugin->release    = '0.1.0';
+$definitions = [
+    'proview_auth_token' => [
+        'mode'                   => cache_store::MODE_APPLICATION,
+        'ttl'                    => 3300,
+        'staticacceleration'     => true,
+        'staticaccelerationsize' => 1,
+    ],
+];

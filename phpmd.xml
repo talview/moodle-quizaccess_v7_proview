@@ -9,8 +9,14 @@
         Moodle PHPMD ruleset — mirrors the config used by moodle-plugin-ci.
     </description>
 
-    <rule ref="rulesets/codesize.xml"/>
-    <rule ref="rulesets/unusedcode.xml"/>
+    <rule ref="rulesets/codesize.xml">
+        <!-- Test classes naturally have many test methods. -->
+        <exclude name="TooManyPublicMethods"/>
+    </rule>
+    <rule ref="rulesets/unusedcode.xml">
+        <!-- Interface stub implementations require all parameters by contract. -->
+        <exclude name="UnusedFormalParameter"/>
+    </rule>
     <rule ref="rulesets/naming.xml">
         <!-- Moodle uses short var names like $DB, $rs, $cm — exclude ShortVariable -->
         <exclude name="ShortVariable"/>

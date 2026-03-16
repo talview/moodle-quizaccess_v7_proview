@@ -1,1 +1,11 @@
 npx lint-staged
+
+# Run PHPUnit if moodle-plugin-ci is installed locally (ci/ directory).
+# To set up: composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+# Then run the install step once: ci/bin/moodle-plugin-ci install --plugin . --db-type=pgsql
+if [ -x ci/bin/moodle-plugin-ci ]; then
+  echo "Running PHPUnit via moodle-plugin-ci..."
+  ci/bin/moodle-plugin-ci phpunit --no-coverage
+else
+  echo "Skipping PHPUnit (moodle-plugin-ci not found in ci/). Static checks only."
+fi

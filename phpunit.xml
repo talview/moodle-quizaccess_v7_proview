@@ -3,28 +3,28 @@
     PHPUnit configuration for quizaccess_proview.
 
     Run from the Moodle root:
-        vendor/bin/phpunit --testsuite quizaccess_proview
+        vendor/bin/phpunit -testsuite quizaccess_proview
 
     Or via moodle-plugin-ci in CI (which handles Moodle bootstrap automatically).
 
-    Coverage: use pcov or xdebug — phpdbg is deprecated in moodle-plugin-ci 5.x.
+    Coverage: use pcov or xdebug.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="lib/phpunit/phpunit_configuration.xsd">
 
     <testsuites>
         <testsuite name="quizaccess_proview">
-            <directory suffix="_test.php">mod/quiz/accessrule/proview/tests</directory>
+            <directory suffix="_test.php">tests</directory>
         </testsuite>
     </testsuites>
 
     <coverage>
         <include>
-            <directory suffix=".php">mod/quiz/accessrule/proview</directory>
+            <directory suffix=".php">.</directory>
         </include>
         <exclude>
-            <directory>mod/quiz/accessrule/proview/tests</directory>
-            <directory>mod/quiz/accessrule/proview/vendor</directory>
+            <directory>tests</directory>
+            <directory>vendor</directory>
         </exclude>
     </coverage>
 
