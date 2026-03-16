@@ -41,6 +41,10 @@ namespace quizaccess_proview;
 final class token_manager_test extends \advanced_testcase {
     /**
      * Set all three admin config values needed by build_cache_key().
+     *
+     * @param string $url      Admin URL config value.
+     * @param string $username Admin username config value.
+     * @param string $password Admin password config value.
      */
     private function set_admin_config(
         string $url = 'https://lms.example.test',
@@ -55,8 +59,8 @@ final class token_manager_test extends \advanced_testcase {
     /**
      * Return a counting authfn closure.
      *
-     * @param int    &$count Incremented on each call.
-     * @param string $token  Token to return.
+     * @param int    $count Incremented on each call (passed by reference).
+     * @param string $token Token to return.
      * @return callable
      */
     private function make_authfn(int &$count, string $token = 'dummy-token'): callable {

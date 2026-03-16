@@ -20,11 +20,13 @@
   "scripts": {
     "lint": "parallel-lint --exclude vendor .",
     "cs": "phpcs --standard=moodle --extensions=php --no-cache .",
+    "phpdoc": "bash -c 'ci/vendor/bin/moodle-phpdoc-checker --max-warnings 0'",
     "cs-fix": "phpcbf --standard=moodle --extensions=php .",
     "analyse": "phpstan analyse --memory-limit=512M",
     "check": [
       "@lint",
       "@cs",
+      "@phpdoc",
       "@analyse"
     ]
   },

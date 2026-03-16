@@ -72,7 +72,11 @@ class api_testable extends \quizaccess_proview\api {
      * Intercept HTTP calls: record the invocation, then return the preset
      * response or throw the preset exception.
      *
-     * {@inheritdoc}
+     * @param string     $method  HTTP method ('GET' or 'POST').
+     * @param string     $url     Full request URL.
+     * @param string[]   $headers Additional headers.
+     * @param array|null $body    Request body or null.
+     * @return array Decoded JSON response.
      */
     protected static function make_request(
         string $method,

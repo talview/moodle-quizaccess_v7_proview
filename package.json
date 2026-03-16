@@ -12,7 +12,8 @@
     "*.php": [
       "vendor/bin/parallel-lint --no-colors",
       "vendor/bin/phpcs --standard=moodle --no-cache",
-      "bash -c 'vendor/bin/phpmd . text phpmd.xml --suffixes php || true'"
+      "bash -c 'vendor/bin/phpmd . text phpmd.xml --suffixes php || true'",
+      "bash -c 'if [ -x ci/vendor/bin/moodle-phpdoc-checker ]; then ci/vendor/bin/moodle-phpdoc-checker --max-warnings 0; fi'"
     ]
   }
 }
