@@ -24,6 +24,8 @@
  * @group      quizaccess_proview
  */
 
+namespace quizaccess_proview;
+
 /**
  * Tests for {@see \quizaccess_proview}.
  *
