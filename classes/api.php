@@ -53,7 +53,8 @@ class api {
         global $CFG;
 
         $url     = static::get_base_url() . '/organization/application';
-        $appid   = md5($CFG->wwwroot);
+        $parsed  = parse_url($CFG->wwwroot);
+        $appid   = md5($parsed['scheme'] . '://' . $parsed['host']);
         $headers = ['app-id: ' . $appid];
 
         $response = static::make_request('GET', $url, $headers, null);

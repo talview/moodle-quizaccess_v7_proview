@@ -109,21 +109,6 @@ class quizaccess_proview extends access_rule_base {
             $orgsfail = true;
         }
 
-        $proctoringtypes = [
-            'none'          => get_string('noproctor', 'quizaccess_proview'),
-            'ai'            => get_string('ai_proctor', 'quizaccess_proview'),
-            'record_review' => get_string('record_review', 'quizaccess_proview'),
-            'live'          => get_string('live_proctor', 'quizaccess_proview'),
-        ];
-        $mform->addElement(
-            'select',
-            'proctoringtype',
-            get_string('proctoringtype', 'quizaccess_proview'),
-            $proctoringtypes
-        );
-        $mform->addHelpButton('proctoringtype', 'proctoringtype', 'quizaccess_proview');
-        $mform->setDefault('proctoringtype', 'none');
-
         // Proview token — populated from /proview/token (requires auth).
         // Value stored is the token UUID string (token.token), not the numeric id.
         try {
@@ -154,6 +139,21 @@ class quizaccess_proview extends access_rule_base {
         }
         $mform->addHelpButton('proview_token', 'proview_token', 'quizaccess_proview');
 
+        $proctoringtypes = [
+            'none'          => get_string('noproctor', 'quizaccess_proview'),
+            'ai'            => get_string('ai_proctor', 'quizaccess_proview'),
+            'record_review' => get_string('record_review', 'quizaccess_proview'),
+            'live'          => get_string('live_proctor', 'quizaccess_proview'),
+        ];
+        $mform->addElement(
+            'select',
+            'proctoringtype',
+            get_string('proctoringtype', 'quizaccess_proview'),
+            $proctoringtypes
+        );
+        $mform->addHelpButton('proctoringtype', 'proctoringtype', 'quizaccess_proview');
+        $mform->setDefault('proctoringtype', 'none');
+
         // Event scheduling type — event_schedule_type is an array per org; collect unique values.
         $schedulingoptions = ['' => get_string('choosedots')];
         if (!$orgsfail) {
@@ -182,6 +182,7 @@ class quizaccess_proview extends access_rule_base {
             $mform->setType('eventschedulingtype', PARAM_TEXT);
         }
         $mform->addHelpButton('eventschedulingtype', 'eventschedulingtype', 'quizaccess_proview');
+        $mform->setDefault('eventschedulingtype', 'bulk');
         $mform->hideIf('eventschedulingtype', 'proctoringtype', 'neq', 'live');
 
         $mform->addElement(
@@ -392,16 +393,33 @@ class quizaccess_proview extends access_rule_base {
         }
 
         try {
+            $typemap = [
+                'ai'            => 'ai_proctor',
+                'record_review' => 'record_and_review',
+                'live'          => 'live_proctor',
+            ];
+            $isnone          = ($record->proctoringtype === 'none');
+            $proctoringenabled = !$isnone;
+            $apitype           = $typemap[$record->proctoringtype] ?? null;
+
             $tokenmgr = new \quizaccess_proview\token_manager();
             $token    = $tokenmgr->get_token();
             $payload  = [
+                'action'                        => empty($quiz->instance) ? 0 : 1,
                 'quiz_id'                       => (int) $quiz->id,
-                'course_module_id'              => (int) $quiz->coursemodule,
-                'proctoring_enabled'            => true,
-                'proctoring_type'               => $record->proctoringtype,
+                'quiz_title'                    => (string) ($quiz->name ?? ''),
+                'course_id'                     => (int) $quiz->course,
+                'course_module_id'              => (string) ($quiz->coursemodule ?? ''),
+                'attempts'                      => (int) ($quiz->attempts ?? 0),
+                'timeopen'                      => (int) ($quiz->timeopen ?? 0),
+                'timeclose'                     => (int) ($quiz->timeclose ?? 0),
+                'timelimit'                     => (int) ($quiz->timelimit ?? 0),
+                'overduehandling'               => (string) ($quiz->overduehandling ?? 'autosubmit'),
+                'graceperiod'                   => (int) ($quiz->graceperiod ?? 0),
+                'proctoring_enabled'            => $proctoringenabled,
+                'tsb_enabled'                   => (bool) $record->tsbenabled,
                 'proview_token'                 => (string) ($record->proview_token ?? ''),
                 'scheduling_type'               => (string) ($record->eventschedulingtype ?? ''),
-                'tsb_enabled'                   => (bool) $record->tsbenabled,
                 'proctor_instructions'          => $proctorinstructions,
                 'candidate_instructions'        => $candidateinstructions,
                 'reference_links'               => (string) ($record->referencelinks ?? ''),
@@ -411,13 +429,14 @@ class quizaccess_proview extends access_rule_base {
                 'whitelisted_mac_softwares'     => (string) ($record->whitelistedmacsoftwares ?? ''),
                 'minimize_permitted'            => (bool) $record->minimizepermitted,
                 'screen_protection'             => (bool) $record->screenprotection,
+                'timemodified'                  => (int) $now,
             ];
+            if ($apitype !== null) {
+                $payload['proctoring_type'] = $apitype;
+            }
             \quizaccess_proview\api::save_quiz($token, $payload);
         } catch (\moodle_exception $e) {
-            debugging(
-                'quizaccess_proview: API sync failed in save_settings(): ' . $e->getMessage(),
-                DEBUG_DEVELOPER
-            );
+            debugging('[quizaccess_proview] API sync failed in save_settings(): ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
     }
 
