@@ -67,5 +67,26 @@ function xmldb_quizaccess_proview_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026031002, 'quizaccess', 'proview');
     }
 
+    if ($oldversion < 2026031800) {
+        $table = new xmldb_table('quizaccess_proview_attempts');
+
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $table->add_field('quizid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('attemptno', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('proviewurl', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('proctortype', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('quizid_userid_attemptno', XMLDB_INDEX_UNIQUE, ['quizid', 'userid', 'attemptno']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026031800, 'quizaccess', 'proview');
+    }
+
     return true;
 }
