@@ -28,10 +28,39 @@ use mod_quiz\quiz_settings;
 /**
  * Proview proctoring access rule for Moodle quizzes.
  *
- * Handles Proview session launch via CDN script injection and
- * quiz-level proctoring configuration.
+ * Handles per-quiz proctoring configuration form fields, persists config to
+ * mdl_quizaccess_proview, and syncs settings to the LMS Connector API.
  */
 class quizaccess_proview extends access_rule_base {
+    /**
+     * Validate the reference links field value.
+     *
+     * Each non-empty line must be a markdown-style link: [Label](https://example.com)
+     *
+     * @param string $value Field value to validate.
+     * @return bool True if valid (or empty), false otherwise.
+     */
+    public static function validate_reference_links($value): bool {
+        if (empty($value)) {
+            return true;
+        }
+        $pattern = '/^\[([^\]]+)\]\(([^)]+)\)$/i';
+        $lines   = preg_split('/\r\n|\r|\n/', $value);
+        foreach ($lines as $line) {
+            if (empty(trim($line))) {
+                continue;
+            }
+            if (!preg_match($pattern, $line)) {
+                return false;
+            }
+            preg_match($pattern, $line, $matches);
+            if (!filter_var($matches[2], FILTER_VALIDATE_URL)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Return an appropriately configured instance of this rule, if it is applicable
      * to the given quiz, otherwise return null.
@@ -42,7 +71,382 @@ class quizaccess_proview extends access_rule_base {
      * @return self|null the rule, if applicable, else null.
      */
     public static function make(quiz_settings $quizobj, $timenow, $canignoretimelimits) {
-        // Rule will be activated in M2 when per-quiz config is in place.
-        return null;
+        global $DB;
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => $quizobj->get_quizid()]);
+
+        if (!$record) {
+            return null;
+        }
+
+        return new self($quizobj, $timenow);
+    }
+
+    /**
+     * Add per-quiz proctoring settings fields to the quiz editing form.
+     *
+     * @param mod_quiz_mod_form $quizform the quiz settings form.
+     * @param MoodleQuickForm   $mform    the underlying QuickForm object.
+     */
+    public static function add_settings_form_fields(
+        mod_quiz_mod_form $quizform,
+        MoodleQuickForm $mform
+    ): void {
+        global $DB;
+
+        $mform->addElement(
+            'header',
+            'proview_proctoring_header',
+            get_string('proview_proctoring_header', 'quizaccess_proview')
+        );
+
+        // Fetch organisations; data is reused for the event scheduling type dropdown.
+        $orgs     = [];
+        $orgsfail = false;
+        try {
+            $orgs = \quizaccess_proview\api::get_organizations();
+        } catch (\moodle_exception $e) {
+            $orgsfail = true;
+        }
+
+        // Proview token — populated from /proview/token (requires auth).
+        // Value stored is the token UUID string (token.token), not the numeric id.
+        try {
+            $tokenmgr      = new \quizaccess_proview\token_manager();
+            $bearer        = $tokenmgr->get_token();
+            $proviewtokens = \quizaccess_proview\api::get_proview_tokens($bearer);
+            $tokenoptions  = ['' => get_string('choosedots')];
+            foreach ($proviewtokens as $pt) {
+                $ptuuid = $pt['token'] ?? '';
+                $ptname = $pt['name'] ?? $ptuuid;
+                if ($ptuuid !== '') {
+                    $tokenoptions[$ptuuid] = $ptname;
+                }
+            }
+            $mform->addElement(
+                'select',
+                'proview_token',
+                get_string('proview_token', 'quizaccess_proview'),
+                $tokenoptions
+            );
+        } catch (\moodle_exception $e) {
+            $mform->addElement(
+                'text',
+                'proview_token',
+                get_string('proview_token', 'quizaccess_proview')
+            );
+            $mform->setType('proview_token', PARAM_TEXT);
+        }
+        $mform->addHelpButton('proview_token', 'proview_token', 'quizaccess_proview');
+
+        $proctoringtypes = [
+            'none'          => get_string('noproctor', 'quizaccess_proview'),
+            'ai'            => get_string('ai_proctor', 'quizaccess_proview'),
+            'record_review' => get_string('record_review', 'quizaccess_proview'),
+            'live'          => get_string('live_proctor', 'quizaccess_proview'),
+        ];
+        $mform->addElement(
+            'select',
+            'proctoringtype',
+            get_string('proctoringtype', 'quizaccess_proview'),
+            $proctoringtypes
+        );
+        $mform->addHelpButton('proctoringtype', 'proctoringtype', 'quizaccess_proview');
+        $mform->setDefault('proctoringtype', 'none');
+
+        // Event scheduling type — event_schedule_type is an array per org; collect unique values.
+        $schedulingoptions = ['' => get_string('choosedots')];
+        if (!$orgsfail) {
+            foreach ($orgs as $org) {
+                $types = $org['event_schedule_type'] ?? [];
+                foreach ($types as $type) {
+                    if ($type !== '' && !array_key_exists($type, $schedulingoptions)) {
+                        $schedulingoptions[$type] = $type;
+                    }
+                }
+            }
+        }
+        if (count($schedulingoptions) > 1) {
+            $mform->addElement(
+                'select',
+                'eventschedulingtype',
+                get_string('eventschedulingtype', 'quizaccess_proview'),
+                $schedulingoptions
+            );
+        } else {
+            $mform->addElement(
+                'text',
+                'eventschedulingtype',
+                get_string('eventschedulingtype', 'quizaccess_proview')
+            );
+            $mform->setType('eventschedulingtype', PARAM_TEXT);
+        }
+        $mform->addHelpButton('eventschedulingtype', 'eventschedulingtype', 'quizaccess_proview');
+        $mform->setDefault('eventschedulingtype', 'bulk');
+        $mform->hideIf('eventschedulingtype', 'proctoringtype', 'neq', 'live');
+
+        $mform->addElement(
+            'editor',
+            'proctorinstructions',
+            get_string('proctorinstructions', 'quizaccess_proview')
+        );
+        $mform->setType('proctorinstructions', PARAM_RAW);
+        $mform->addHelpButton('proctorinstructions', 'proctorinstructions', 'quizaccess_proview');
+
+        $mform->addElement(
+            'editor',
+            'candidateinstructions',
+            get_string('candidateinstructions', 'quizaccess_proview')
+        );
+        $mform->setType('candidateinstructions', PARAM_RAW);
+        $mform->addHelpButton('candidateinstructions', 'candidateinstructions', 'quizaccess_proview');
+
+        $mform->addElement(
+            'textarea',
+            'referencelinks',
+            get_string('referencelinks', 'quizaccess_proview'),
+            ['rows' => 4, 'cols' => 60]
+        );
+        $mform->setType('referencelinks', PARAM_TEXT);
+        $mform->addHelpButton('referencelinks', 'referencelinks', 'quizaccess_proview');
+        $mform->addRule(
+            'referencelinks',
+            get_string('invalid_reference_links', 'quizaccess_proview'),
+            'callback',
+            'quizaccess_proview::validate_reference_links'
+        );
+
+        $mform->addElement(
+            'advcheckbox',
+            'tsbenabled',
+            get_string('tsbenabled', 'quizaccess_proview')
+        );
+        $mform->addHelpButton('tsbenabled', 'tsbenabled', 'quizaccess_proview');
+        $mform->setDefault('tsbenabled', 0);
+
+        $mform->addElement(
+            'textarea',
+            'blacklistedwindowssoftwares',
+            get_string('blacklistedwindowssoftwares', 'quizaccess_proview'),
+            ['rows' => 4, 'cols' => 60]
+        );
+        $mform->setType('blacklistedwindowssoftwares', PARAM_TEXT);
+        $mform->hideIf('blacklistedwindowssoftwares', 'tsbenabled', 'eq', 0);
+
+        $mform->addElement(
+            'textarea',
+            'blacklistedmacsoftwares',
+            get_string('blacklistedmacsoftwares', 'quizaccess_proview'),
+            ['rows' => 4, 'cols' => 60]
+        );
+        $mform->setType('blacklistedmacsoftwares', PARAM_TEXT);
+        $mform->hideIf('blacklistedmacsoftwares', 'tsbenabled', 'eq', 0);
+
+        $mform->addElement(
+            'textarea',
+            'whitelistedwindowssoftwares',
+            get_string('whitelistedwindowssoftwares', 'quizaccess_proview'),
+            ['rows' => 4, 'cols' => 60]
+        );
+        $mform->setType('whitelistedwindowssoftwares', PARAM_TEXT);
+        $mform->hideIf('whitelistedwindowssoftwares', 'tsbenabled', 'eq', 0);
+
+        $mform->addElement(
+            'textarea',
+            'whitelistedmacsoftwares',
+            get_string('whitelistedmacsoftwares', 'quizaccess_proview'),
+            ['rows' => 4, 'cols' => 60]
+        );
+        $mform->setType('whitelistedmacsoftwares', PARAM_TEXT);
+        $mform->hideIf('whitelistedmacsoftwares', 'tsbenabled', 'eq', 0);
+
+        $mform->addElement(
+            'advcheckbox',
+            'minimizepermitted',
+            get_string('minimizepermitted', 'quizaccess_proview')
+        );
+        $mform->addHelpButton('minimizepermitted', 'minimizepermitted', 'quizaccess_proview');
+        $mform->setDefault('minimizepermitted', 0);
+        $mform->hideIf('minimizepermitted', 'tsbenabled', 'eq', 0);
+
+        $mform->addElement(
+            'advcheckbox',
+            'screenprotection',
+            get_string('screenprotection', 'quizaccess_proview')
+        );
+        $mform->addHelpButton('screenprotection', 'screenprotection', 'quizaccess_proview');
+        $mform->setDefault('screenprotection', 0);
+        $mform->hideIf('screenprotection', 'tsbenabled', 'eq', 0);
+
+        $quizid = $quizform->get_instance();
+        if ($quizid) {
+            $record = $DB->get_record('quizaccess_proview', ['quizid' => $quizid]);
+            if ($record) {
+                $mform->setDefault('proctoringtype', $record->proctoringtype);
+                $mform->setDefault('proview_token', $record->proview_token ?? '');
+                $mform->setDefault('eventschedulingtype', $record->eventschedulingtype ?? '');
+                $mform->setDefault('proctorinstructions', [
+                    'text'   => $record->proctorinstructions ?? '',
+                    'format' => FORMAT_HTML,
+                ]);
+                $mform->setDefault('candidateinstructions', [
+                    'text'   => $record->candidateinstructions ?? '',
+                    'format' => FORMAT_HTML,
+                ]);
+                $mform->setDefault('referencelinks', $record->referencelinks ?? '');
+                $mform->setDefault('tsbenabled', $record->tsbenabled);
+                $mform->setDefault('blacklistedwindowssoftwares', $record->blacklistedwindowssoftwares ?? '');
+                $mform->setDefault('blacklistedmacsoftwares', $record->blacklistedmacsoftwares ?? '');
+                $mform->setDefault('whitelistedwindowssoftwares', $record->whitelistedwindowssoftwares ?? '');
+                $mform->setDefault('whitelistedmacsoftwares', $record->whitelistedmacsoftwares ?? '');
+                $mform->setDefault('minimizepermitted', $record->minimizepermitted);
+                $mform->setDefault('screenprotection', $record->screenprotection);
+            }
+        }
+    }
+
+    /**
+     * Validate the proctoring settings submitted via the quiz editing form.
+     *
+     * @param array            $errors   Existing validation errors (pass-through).
+     * @param array            $data     Submitted form data.
+     * @param array            $files    Uploaded files (unused).
+     * @param mod_quiz_mod_form $quizform The quiz settings form.
+     * @return array Validation errors (key = field name, value = error string).
+     */
+    public static function validate_settings_form_fields(
+        array $errors,
+        array $data,
+        $files,
+        mod_quiz_mod_form $quizform
+    ): array {
+        return $errors;
+    }
+
+    /**
+     * Save the proctoring configuration for a quiz.
+     *
+     * Upserts a row in mdl_quizaccess_proview, then (best-effort) syncs the
+     * config to the LMS Connector API.  API failures are logged via
+     * debugging() and do NOT prevent the local save from succeeding.
+     *
+     * @param stdClass $quiz Quiz record including all submitted form fields.
+     */
+    public static function save_settings($quiz): void {
+        global $DB;
+
+        $now = time();
+
+        $proctorinstructions = '';
+        if (isset($quiz->proctorinstructions)) {
+            $proctorinstructions = is_array($quiz->proctorinstructions)
+                ? ($quiz->proctorinstructions['text'] ?? '')
+                : (string) $quiz->proctorinstructions;
+        }
+
+        $candidateinstructions = '';
+        if (isset($quiz->candidateinstructions)) {
+            $candidateinstructions = is_array($quiz->candidateinstructions)
+                ? ($quiz->candidateinstructions['text'] ?? '')
+                : (string) $quiz->candidateinstructions;
+        }
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => $quiz->id]);
+
+        if ($record) {
+            $record->proctoringenabled           = 1;
+            $record->proctoringtype              = $quiz->proctoringtype ?? 'none';
+            $record->proview_token               = $quiz->proview_token ?? null;
+            $record->eventschedulingtype         = $quiz->eventschedulingtype ?? null;
+            $record->proctorinstructions         = $proctorinstructions;
+            $record->candidateinstructions       = $candidateinstructions;
+            $record->referencelinks              = $quiz->referencelinks ?? null;
+            $record->tsbenabled                  = (int) !empty($quiz->tsbenabled);
+            $record->blacklistedwindowssoftwares = $quiz->blacklistedwindowssoftwares ?? null;
+            $record->blacklistedmacsoftwares     = $quiz->blacklistedmacsoftwares ?? null;
+            $record->whitelistedwindowssoftwares = $quiz->whitelistedwindowssoftwares ?? null;
+            $record->whitelistedmacsoftwares     = $quiz->whitelistedmacsoftwares ?? null;
+            $record->minimizepermitted           = (int) !empty($quiz->minimizepermitted);
+            $record->screenprotection            = (int) !empty($quiz->screenprotection);
+            $record->timemodified                = $now;
+            $DB->update_record('quizaccess_proview', $record);
+        } else {
+            $record                              = new \stdClass();
+            $record->quizid                      = $quiz->id;
+            $record->proctoringenabled           = 1;
+            $record->proctoringtype              = $quiz->proctoringtype ?? 'none';
+            $record->proview_token               = $quiz->proview_token ?? null;
+            $record->eventschedulingtype         = $quiz->eventschedulingtype ?? null;
+            $record->proctorinstructions         = $proctorinstructions;
+            $record->candidateinstructions       = $candidateinstructions;
+            $record->referencelinks              = $quiz->referencelinks ?? null;
+            $record->tsbenabled                  = (int) !empty($quiz->tsbenabled);
+            $record->blacklistedwindowssoftwares = $quiz->blacklistedwindowssoftwares ?? null;
+            $record->blacklistedmacsoftwares     = $quiz->blacklistedmacsoftwares ?? null;
+            $record->whitelistedwindowssoftwares = $quiz->whitelistedwindowssoftwares ?? null;
+            $record->whitelistedmacsoftwares     = $quiz->whitelistedmacsoftwares ?? null;
+            $record->minimizepermitted           = (int) !empty($quiz->minimizepermitted);
+            $record->screenprotection            = (int) !empty($quiz->screenprotection);
+            $record->timecreated                 = $now;
+            $record->timemodified                = $now;
+            $DB->insert_record('quizaccess_proview', $record);
+        }
+
+        try {
+            $typemap = [
+                'ai'            => 'ai_proctor',
+                'record_review' => 'record_and_review',
+                'live'          => 'live_proctor',
+            ];
+            $isnone          = ($record->proctoringtype === 'none');
+            $proctoringenabled = !$isnone;
+            $apitype           = $typemap[$record->proctoringtype] ?? null;
+
+            $tokenmgr = new \quizaccess_proview\token_manager();
+            $token    = $tokenmgr->get_token();
+            $payload  = [
+                'action'                        => empty($quiz->instance) ? 0 : 1,
+                'quiz_id'                       => (int) $quiz->id,
+                'quiz_title'                    => (string) ($quiz->name ?? ''),
+                'course_id'                     => (int) $quiz->course,
+                'course_module_id'              => (string) ($quiz->coursemodule ?? ''),
+                'attempts'                      => (int) ($quiz->attempts ?? 0),
+                'timeopen'                      => (int) ($quiz->timeopen ?? 0),
+                'timeclose'                     => (int) ($quiz->timeclose ?? 0),
+                'timelimit'                     => (int) ($quiz->timelimit ?? 0),
+                'overduehandling'               => (string) ($quiz->overduehandling ?? 'autosubmit'),
+                'graceperiod'                   => (int) ($quiz->graceperiod ?? 0),
+                'proctoring_enabled'            => $proctoringenabled,
+                'tsb_enabled'                   => (bool) $record->tsbenabled,
+                'proview_token'                 => (string) ($record->proview_token ?? ''),
+                'scheduling_type'               => (string) ($record->eventschedulingtype ?? ''),
+                'proctor_instructions'          => $proctorinstructions,
+                'candidate_instructions'        => $candidateinstructions,
+                'reference_links'               => (string) ($record->referencelinks ?? ''),
+                'blacklisted_windows_softwares' => (string) ($record->blacklistedwindowssoftwares ?? ''),
+                'blacklisted_mac_softwares'     => (string) ($record->blacklistedmacsoftwares ?? ''),
+                'whitelisted_windows_softwares' => (string) ($record->whitelistedwindowssoftwares ?? ''),
+                'whitelisted_mac_softwares'     => (string) ($record->whitelistedmacsoftwares ?? ''),
+                'minimize_permitted'            => (bool) $record->minimizepermitted,
+                'screen_protection'             => (bool) $record->screenprotection,
+                'timemodified'                  => (int) $now,
+            ];
+            if ($apitype !== null) {
+                $payload['proctoring_type'] = $apitype;
+            }
+            \quizaccess_proview\api::save_quiz($token, $payload);
+        } catch (\moodle_exception $e) {
+            debugging('[quizaccess_proview] API sync failed in save_settings(): ' . $e->getMessage(), DEBUG_DEVELOPER);
+        }
+    }
+
+    /**
+     * Delete the proctoring configuration for a quiz (called when quiz is deleted).
+     *
+     * @param stdClass $quiz The quiz being deleted.
+     */
+    public static function delete_settings($quiz): void {
+        global $DB;
+        $DB->delete_records('quizaccess_proview', ['quizid' => $quiz->id]);
     }
 }

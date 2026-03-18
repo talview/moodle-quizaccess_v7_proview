@@ -17,6 +17,9 @@ amd/build/
 # moodle-plugin-ci
 .moodle-plugin-ci.yml
 
+# Build artefacts
+*.zip
+
 # IDE / OS
 .idea/
 .vscode/

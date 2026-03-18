@@ -53,7 +53,8 @@ class api {
         global $CFG;
 
         $url     = static::get_base_url() . '/organization/application';
-        $appid   = md5($CFG->wwwroot);
+        $parsed  = parse_url($CFG->wwwroot);
+        $appid   = md5($parsed['scheme'] . '://' . $parsed['host']);
         $headers = ['app-id: ' . $appid];
 
         $response = static::make_request('GET', $url, $headers, null);
@@ -191,6 +192,13 @@ class api {
 
         $info       = $curl->get_info();
         $httpstatus = (int) ($info['http_code'] ?? 0);
+
+        global $PAGE;
+        if (!empty($PAGE) && !CLI_SCRIPT) {
+            $label   = json_encode('[quizaccess_proview] ' . $method . ' ' . $url . ' HTTP ' . $httpstatus);
+            $payload = json_encode(json_decode($raw, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $PAGE->requires->js_init_code('console.log(' . $label . ', ' . $payload . ');');
+        }
 
         if ($httpstatus < 200 || $httpstatus >= 300) {
             throw new \moodle_exception(
