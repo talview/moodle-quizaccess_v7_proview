@@ -74,8 +74,8 @@ function xmldb_quizaccess_proview_upgrade($oldversion) {
         $table->add_field('quizid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
         $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
         $table->add_field('attemptno', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '1');
-        $table->add_field('proview_url', XMLDB_TYPE_TEXT, null, null, null, null, null);
-        $table->add_field('proctor_type', XMLDB_TYPE_CHAR, '20', null, null, null, null);
+        $table->add_field('proviewurl', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('proctortype', XMLDB_TYPE_CHAR, '20', null, null, null, null);
         $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
 
         $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);

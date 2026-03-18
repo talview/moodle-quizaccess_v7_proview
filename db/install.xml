@@ -36,8 +36,8 @@
         <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to quiz.id"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to user.id"/>
         <FIELD NAME="attemptno" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Quiz attempt number"/>
-        <FIELD NAME="proview_url" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Proview playback URL, populated after successful API fetch"/>
-        <FIELD NAME="proctor_type" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Proctoring type at time of attempt: ai, record_review, live"/>
+        <FIELD NAME="proviewurl" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Proview playback URL, populated after successful API fetch"/>
+        <FIELD NAME="proctortype" TYPE="char" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Proctoring type at time of attempt: ai, record_review, live"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
