@@ -63,7 +63,7 @@ define(['core/log', 'core/notification'], function(Log, Notification) {
      */
     var stopSession = function() {
         if (window.ProctorClient3 && window.ProviewStatus === 'start') {
-            ProctorClient3.stop(function() {
+            window.ProctorClient3.stop(function() {
                 window.ProviewStatus = 'stop';
             });
         }
@@ -89,7 +89,7 @@ define(['core/log', 'core/notification'], function(Log, Notification) {
         }
         initialised = true;
 
-        if (typeof tv === 'undefined') {
+        if (typeof window.tv === 'undefined') {
             Notification.exception({message: '[proview_launch] Proview SDK (tv) not available.'});
             return;
         }
@@ -99,7 +99,7 @@ define(['core/log', 'core/notification'], function(Log, Notification) {
         var params = {
             profileId:            config.profileId,
             session:              config.sessionId,
-            session_type:         config.sessionType,
+            session_type:         config.sessionType, // eslint-disable-line camelcase
             additionalInstruction: config.candidateInstructions || '',
             referenceLinks:       JSON.stringify(config.referenceLinks || []),
             clear:                false,
@@ -128,7 +128,7 @@ define(['core/log', 'core/notification'], function(Log, Notification) {
             },
         };
 
-        tv('init', config.token, params);
+        window.tv('init', config.token, params);
 
         var form = document.getElementById('responseform');
         if (form) {
