@@ -376,7 +376,7 @@ final class rule_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $quizid = 70;
-        $quiz = $this->make_quiz(['id' => $quizid]);
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
         \quizaccess_proview::save_settings($quiz);
 
         $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
@@ -385,5 +385,114 @@ final class rule_test extends \advanced_testcase {
         $result = \quizaccess_proview::make($quizobj, time(), false);
 
         $this->assertInstanceOf(\quizaccess_proview::class, $result);
+    }
+
+    /**
+     * make() must return null when proctoringtype is 'none' and TSB is disabled.
+     */
+    public function test_make_returns_null_when_proctoring_none_and_tsb_disabled(): void {
+        $this->resetAfterTest();
+
+        $quizid = 71;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * make() must return an instance when proctoringtype is 'none' but TSB is enabled (Mode 1).
+     */
+    public function test_make_returns_instance_when_tsb_only(): void {
+        $this->resetAfterTest();
+
+        $quizid = 72;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertInstanceOf(\quizaccess_proview::class, $result);
+    }
+
+    // Tests for is_preflight_check_required.
+
+    /**
+     * is_preflight_check_required() must return true before an attempt exists (attemptid = null).
+     */
+    public function test_preflight_required_before_attempt(): void {
+        $this->resetAfterTest();
+
+        $quizid = 80;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertTrue($rule->is_preflight_check_required(null));
+    }
+
+    /**
+     * is_preflight_check_required() must return false once an attempt exists (Proview-only mode).
+     */
+    public function test_preflight_not_required_for_existing_attempt_no_tsb(): void {
+        $this->resetAfterTest();
+
+        $quizid = 81;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertFalse($rule->is_preflight_check_required(123));
+    }
+
+    /**
+     * validate_preflight_check() must pass errors through unchanged.
+     */
+    public function test_validate_preflight_check_passes_errors_through(): void {
+        $this->resetAfterTest();
+
+        $quizid = 82;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $errors = ['somefield' => 'Some error'];
+        $result = $rule->validate_preflight_check([], [], $errors, null);
+
+        $this->assertSame($errors, $result);
+    }
+
+    /**
+     * validate_preflight_check() must return an empty array when no errors are passed.
+     */
+    public function test_validate_preflight_check_returns_empty_on_no_errors(): void {
+        $this->resetAfterTest();
+
+        $quizid = 83;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertSame([], $rule->validate_preflight_check([], [], [], null));
     }
 }
