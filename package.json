@@ -2,7 +2,8 @@
   "name": "quizaccess-proview",
   "private": true,
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "zip": "rm -rf /tmp/zip-build/quizaccess_proview quizaccess_proview.zip && mkdir -p /tmp/zip-build/quizaccess_proview && rsync -a --exclude='.git' --exclude='.github' --exclude='.husky' --exclude='.claude' --exclude='.zed' --exclude='node_modules' --exclude='vendor' --exclude='CLAUDE.md' --exclude='.gitignore' --exclude='.phpcs.xml' --exclude='.DS_Store' --exclude='composer.json' --exclude='composer.lock' --exclude='package.json' --exclude='package-lock.json' --exclude='phpmd.xml' --exclude='phpstan.neon' --exclude='phpunit.xml' --exclude='*.zip' --exclude='tests' ./ /tmp/zip-build/quizaccess_proview/ && cd /tmp/zip-build && zip -r \"$(cd - > /dev/null && pwd)/quizaccess_proview.zip\" quizaccess_proview && echo 'Built: quizaccess_proview.zip'"
   },
   "devDependencies": {
     "husky": "^9.0.0",

@@ -1,4 +1,3 @@
-<?php
 // This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -15,18 +14,31 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin version metadata.
+ * Proview launch AMD module.
  *
- * @package    quizaccess_proview
+ * Proview SDK initialisation has moved to frame.php (the outer iframe wrapper).
+ * This module is now minimal and is used only for the TSB preflight redirect.
+ *
+ *  redirectToTsb(wrapperUrl)
+ *    Redirects the browser to the TSB wrapper URL (preflight, Modes 1 & 2 first visit).
+ *    Called from the preflight page before the quiz attempt is created.
+ *
+ * @module     quizaccess_proview/proview_launch
  * @copyright  2026 Talview Inc.
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+define([], function() {
 
-defined('MOODLE_INTERNAL') || die();
+    /**
+     * Redirect the browser to the Talview Secure Browser wrapper URL.
+     *
+     * @param {string} wrapperUrl TSB wrapper URL returned by the API.
+     */
+    var redirectToTsb = function(wrapperUrl) {
+        window.location.href = wrapperUrl;
+    };
 
-$plugin->component  = 'quizaccess_proview';
-$plugin->version    = 2026032221;
-$plugin->requires   = 2024042200; // Moodle 4.5.
-$plugin->supported  = [405, 501]; // Moodle 4.5 to 5.1.
-$plugin->maturity   = MATURITY_ALPHA;
-$plugin->release    = '0.1.0';
+    return {
+        redirectToTsb: redirectToTsb,
+    };
+});

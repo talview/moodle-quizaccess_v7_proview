@@ -150,6 +150,54 @@ class api {
     }
 
     /**
+     * Create a Talview Secure Browser wrapper URL for a quiz attempt.
+     *
+     * POST {proview_admin_url}/proview/wrapper/create
+     * Header: Authorization: Bearer {bearertoken}
+     *
+     * The wrapper URL, when opened, launches the Talview Secure Browser and
+     * redirects the candidate back to the quiz attempt URL inside the TSB.
+     *
+     * @param string $bearertoken Valid LMS Connector bearer token.
+     * @param string $sessionid   Session identifier — "{quizid}_{userid}_{attemptno}".
+     * @param string $attendeeid  Moodle user ID as a string.
+     * @param string $redirecturl Full quiz attempt URL the TSB should load after launch.
+     * @param int    $expiry      Unix timestamp at which the wrapper URL expires.
+     * @return string TSB wrapper URL.
+     * @throws \moodle_exception On HTTP error or missing URL in response.
+     */
+    public static function create_tsb_wrapper(
+        string $bearertoken,
+        string $sessionid,
+        string $attendeeid,
+        string $redirecturl,
+        int $expiry
+    ): string {
+        $adminurl = (string) get_config('quizaccess_proview', 'proview_admin_url');
+        $url      = rtrim($adminurl, '/') . '/proview/wrapper/create';
+        $headers  = ['Authorization: Bearer ' . $bearertoken];
+        $body     = [
+            'session_id'   => $sessionid,
+            'attendee_id'  => $attendeeid,
+            'redirect_url' => $redirecturl,
+            'expiry'       => $expiry,
+        ];
+
+        $response = static::make_request('POST', $url, $headers, $body);
+
+        if (empty($response['wrapper_url'])) {
+            throw new \moodle_exception(
+                'proview_api_error',
+                'quizaccess_proview',
+                '',
+                'TSB wrapper URL missing from response'
+            );
+        }
+
+        return (string) $response['wrapper_url'];
+    }
+
+    /**
      * Execute an HTTP request via Moodle's \curl wrapper.
      *
      * @param string     $method  HTTP method ('GET' or 'POST').

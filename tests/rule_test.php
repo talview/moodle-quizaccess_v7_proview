@@ -376,7 +376,7 @@ final class rule_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $quizid = 70;
-        $quiz = $this->make_quiz(['id' => $quizid]);
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
         \quizaccess_proview::save_settings($quiz);
 
         $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
@@ -385,5 +385,220 @@ final class rule_test extends \advanced_testcase {
         $result = \quizaccess_proview::make($quizobj, time(), false);
 
         $this->assertInstanceOf(\quizaccess_proview::class, $result);
+    }
+
+    /**
+     * make() must return null when proctoringtype is 'none' and TSB is disabled.
+     */
+    public function test_make_returns_null_when_proctoring_none_and_tsb_disabled(): void {
+        $this->resetAfterTest();
+
+        $quizid = 71;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * make() must return an instance when proctoringtype is 'none' but TSB is enabled (Mode 1).
+     */
+    public function test_make_returns_instance_when_tsb_only(): void {
+        $this->resetAfterTest();
+
+        $quizid = 72;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertInstanceOf(\quizaccess_proview::class, $result);
+    }
+
+    // Tests for save_settings: additional field coverage.
+
+    /**
+     * save_settings() must extract HTML text from an editor array for proctorinstructions.
+     */
+    public function test_save_settings_extracts_editor_array_for_proctor_instructions(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $quiz = $this->make_quiz([
+            'id'                  => 53,
+            'proctorinstructions' => ['text' => '<p>Watch carefully</p>', 'format' => 1],
+        ]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => 53]);
+        $this->assertSame('<p>Watch carefully</p>', $record->proctorinstructions);
+    }
+
+    /**
+     * save_settings() must persist referencelinks.
+     */
+    public function test_save_settings_persists_referencelinks(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $quiz = $this->make_quiz([
+            'id'             => 54,
+            'referencelinks' => "[Docs](https://example.com)\n[API](https://api.example.com)",
+        ]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => 54]);
+        $this->assertSame("[Docs](https://example.com)\n[API](https://api.example.com)", $record->referencelinks);
+    }
+
+    /**
+     * save_settings() must persist blacklisted and whitelisted software lists.
+     */
+    public function test_save_settings_persists_software_lists(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $quiz = $this->make_quiz([
+            'id'                          => 55,
+            'blacklistedwindowssoftwares' => 'notepad.exe,chrome.exe',
+            'blacklistedmacsoftwares'     => 'TextEdit,Safari',
+            'whitelistedwindowssoftwares' => 'explorer.exe',
+            'whitelistedmacsoftwares'     => 'Finder',
+        ]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => 55]);
+        $this->assertSame('notepad.exe,chrome.exe', $record->blacklistedwindowssoftwares);
+        $this->assertSame('TextEdit,Safari', $record->blacklistedmacsoftwares);
+        $this->assertSame('explorer.exe', $record->whitelistedwindowssoftwares);
+        $this->assertSame('Finder', $record->whitelistedmacsoftwares);
+    }
+
+    /**
+     * save_settings() must persist eventschedulingtype.
+     */
+    public function test_save_settings_persists_eventschedulingtype(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $quiz = $this->make_quiz(['id' => 56, 'proctoringtype' => 'live', 'eventschedulingtype' => 'bulk']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => 56]);
+        $this->assertSame('bulk', $record->eventschedulingtype);
+    }
+
+    // Tests for is_preflight_check_required.
+
+    /**
+     * is_preflight_check_required() must return false on non-startattempt.php pages
+     * for a proctored quiz — the redirect to frame.php is handled inside startattempt.php
+     * and the preflight form is never shown.
+     */
+    public function test_preflight_required_returns_false_outside_startattempt(): void {
+        $this->resetAfterTest();
+
+        $quizid = 80;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        // PHPUnit's SCRIPT_FILENAME is never startattempt.php, so this always returns false.
+        $this->assertFalse($rule->is_preflight_check_required(null));
+        $this->assertFalse($rule->is_preflight_check_required(123));
+    }
+
+    /**
+     * is_preflight_check_required() must return true on startattempt.php when TSB is
+     * enabled and the candidate is NOT using the TSB browser (redirect-to-TSB mode).
+     */
+    public function test_preflight_required_returns_true_on_startattempt_when_tsb_not_in_browser(): void {
+        $this->resetAfterTest();
+
+        $quizid = 81;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        // Simulate being called from startattempt.php with a standard browser UA.
+        $origscript = $_SERVER['SCRIPT_FILENAME'] ?? '';
+        $origua     = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SERVER['SCRIPT_FILENAME'] = '/var/www/html/moodle/mod/quiz/startattempt.php';
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (standard browser, not TSB)';
+
+        $result = $rule->is_preflight_check_required(null);
+
+        $_SERVER['SCRIPT_FILENAME'] = $origscript;
+        $_SERVER['HTTP_USER_AGENT'] = $origua;
+
+        $this->assertTrue($result);
+    }
+
+    /**
+     * is_preflight_check_required() must return false on non-startattempt.php for TSB quiz.
+     */
+    public function test_preflight_not_required_for_existing_attempt_no_tsb(): void {
+        $this->resetAfterTest();
+
+        $quizid = 82;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertFalse($rule->is_preflight_check_required(123));
+    }
+
+    /**
+     * validate_preflight_check() must pass errors through unchanged.
+     */
+    public function test_validate_preflight_check_passes_errors_through(): void {
+        $this->resetAfterTest();
+
+        $quizid = 90;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $errors = ['somefield' => 'Some error'];
+        $result = $rule->validate_preflight_check([], [], $errors, null);
+
+        $this->assertSame($errors, $result);
+    }
+
+    /**
+     * validate_preflight_check() must return an empty array when no errors are passed.
+     */
+    public function test_validate_preflight_check_returns_empty_on_no_errors(): void {
+        $this->resetAfterTest();
+
+        $quizid = 91;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertSame([], $rule->validate_preflight_check([], [], [], null));
     }
 }
