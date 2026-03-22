@@ -72,18 +72,18 @@ class quizaccess_proview extends access_rule_base {
     /**
      * Build the config array passed to the proview_launch AMD module.
      *
-     * @param string $token       Proview bearer token.
      * @param string $sessionid   Proview session ID.
      * @param bool   $preflight   True on preflight page, false on attempt page.
      * @return array Config for js_call_amd.
      */
-    private function build_amd_config(string $token, string $sessionid, bool $preflight): array {
+    private function build_amd_config(string $sessionid, bool $preflight): array {
         global $USER;
 
         $config = $this->proviewconfig;
         return [
-            'token'                  => $token,
-            'profileId'              => (int) $USER->id,
+            'cdnUrl'                 => (string) get_config('quizaccess_proview', 'proview_cdn_url'),
+            'token'                  => (string) ($config->proview_token ?? ''),
+            'profileId'              => (string) $USER->id,
             'sessionId'              => $sessionid,
             'sessionType'            => self::map_session_type($config->proctoringtype),
             'candidateInstructions'  => (string) ($config->candidateinstructions ?? ''),
@@ -163,7 +163,6 @@ class quizaccess_proview extends access_rule_base {
             get_string('proview_proctoring_header', 'quizaccess_proview')
         );
 
-        // Fetch organisations; data is reused for the event scheduling type dropdown.
         $orgs     = [];
         $orgsfail = false;
         try {
@@ -172,8 +171,6 @@ class quizaccess_proview extends access_rule_base {
             $orgsfail = true;
         }
 
-        // Proview token — populated from /proview/token (requires auth).
-        // Value stored is the token UUID string (token.token), not the numeric id.
         try {
             $tokenmgr      = new \quizaccess_proview\token_manager();
             $bearer        = $tokenmgr->get_token();
@@ -217,7 +214,6 @@ class quizaccess_proview extends access_rule_base {
         $mform->addHelpButton('proctoringtype', 'proctoringtype', 'quizaccess_proview');
         $mform->setDefault('proctoringtype', 'none');
 
-        // Event scheduling type — event_schedule_type is an array per org; collect unique values.
         $schedulingoptions = ['' => get_string('choosedots')];
         if (!$orgsfail) {
             foreach ($orgs as $org) {
@@ -506,23 +502,37 @@ class quizaccess_proview extends access_rule_base {
     /**
      * Whether a preflight check is required before this attempt can proceed.
      *
-     * Returns true so that:
-     *  - TSB users are redirected to the Talview Secure Browser before the quiz starts.
-     *  - Proview preflight (camera/ID checks) runs before the attempt is created and
-     *    the quiz timer begins.
+     * Returns true for proctored quizzes so startattempt.php shows the preflight
+     * page, which immediately redirects to frame.php (no attempt created yet).
+     * This ensures Proview's hardware check runs before the quiz timer starts.
      *
      * @param int|null $attemptid The existing attempt ID, or null if no attempt yet.
      * @return bool
      */
     public function is_preflight_check_required($attemptid) {
-        $tsb   = !empty($this->proviewconfig->tsbenabled);
-        $intbs = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
+        global $CFG;
 
-        if ($tsb && !$intbs) {
-            return true;
+        $context = $this->quizobj->get_context();
+        if (has_capability('quizaccess/proview:manage', $context)) {
+            return false;
         }
 
-        return $attemptid === null;
+        $tsb       = !empty($this->proviewconfig->tsbenabled);
+        $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
+        $proctored = $this->proviewconfig->proctoringtype !== 'none';
+
+        if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'startattempt.php') {
+            if ($proctored && !($tsb && !$intbs)) {
+                $cm = $this->quizobj->get_cm();
+                redirect(new \moodle_url(
+                    $CFG->wwwroot . '/mod/quiz/accessrule/proview/frame.php',
+                    ['quizid' => (int) $this->proviewconfig->quizid, 'cmid' => (int) $cm->id, 'sesskey' => sesskey()]
+                ));
+            }
+            return ($tsb && !$intbs);
+        }
+
+        return false;
     }
 
     /**
@@ -539,32 +549,28 @@ class quizaccess_proview extends access_rule_base {
      * @param int|null                      $attemptid Existing attempt ID, or null.
      */
     public function add_preflight_check_form_fields($quizform, $mform, $attemptid) {
-        global $PAGE, $USER, $DB;
+        global $PAGE, $USER, $DB, $CFG;
 
         $config    = $this->proviewconfig;
         $tsb       = !empty($config->tsbenabled);
-        $proctored = $config->proctoringtype !== 'none';
         $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
-
-        $attemptno = (int) $DB->count_records_select(
-            'quiz_attempts',
-            'quiz = :quiz AND userid = :userid AND state <> :abandoned',
-            ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
-        );
-        $attemptno = max(1, $attemptno);
-
-        $islive    = $config->proctoringtype === 'live';
-        $sessionid = $config->quizid . '-' . $USER->id . ($islive ? '' : '-' . $attemptno);
+        $proctored = $config->proctoringtype !== 'none';
 
         if ($tsb && !$intbs) {
+            $islive    = $config->proctoringtype === 'live';
+            $attemptno = (int) $DB->count_records_select(
+                'quiz_attempts',
+                'quiz = :quiz AND userid = :userid AND state <> :abandoned',
+                ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
+            );
+            $attemptno = max(1, $attemptno);
+            $sessionid = $config->quizid . '-' . $USER->id . ($islive ? '' : '-' . $attemptno);
+
             try {
                 $tokenmgr = new \quizaccess_proview\token_manager();
                 $token    = $tokenmgr->get_token();
             } catch (\moodle_exception $e) {
-                debugging(
-                    '[quizaccess_proview] Token fetch failed (TSB preflight): ' . $e->getMessage(),
-                    DEBUG_DEVELOPER
-                );
+                debugging('[quizaccess_proview] Token fetch failed (TSB preflight): ' . $e->getMessage(), DEBUG_DEVELOPER);
                 return;
             }
 
@@ -581,41 +587,17 @@ class quizaccess_proview extends access_rule_base {
                     $expiry
                 );
             } catch (\moodle_exception $e) {
-                debugging(
-                    '[quizaccess_proview] TSB wrapper creation failed: ' . $e->getMessage(),
-                    DEBUG_DEVELOPER
-                );
+                debugging('[quizaccess_proview] TSB wrapper creation failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
                 return;
             }
 
-            $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [
-                $wrapperurl,
-            ]);
+            $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$wrapperurl]);
             return;
         }
 
-        if ($tsb && $intbs && !$proctored) {
+        if (!$proctored) {
             return;
         }
-
-        try {
-            $tokenmgr = new \quizaccess_proview\token_manager();
-            $token    = $tokenmgr->get_token();
-        } catch (\moodle_exception $e) {
-            debugging(
-                '[quizaccess_proview] Token fetch failed (Proview preflight): ' . $e->getMessage(),
-                DEBUG_DEVELOPER
-            );
-            return;
-        }
-
-        $cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
-        $PAGE->requires->js(new \moodle_url($cdnurl));
-        $PAGE->requires->js_call_amd(
-            'quizaccess_proview/proview_launch',
-            'init',
-            [$this->build_amd_config($token, $sessionid, true)]
-        );
     }
 
     /**
@@ -635,72 +617,94 @@ class quizaccess_proview extends access_rule_base {
     }
 
     /**
-     * Re-initialise Proview for in-quiz monitoring once the attempt is underway.
-     *
-     * Proview preflight has already completed on the preflight page. This call
-     * resumes the session for monitoring only (no camera/ID checks shown again).
+     * Redirect the quiz attempt page into the Proview iframe wrapper (frame.php),
+     * or — when already running inside that iframe — intercept the "Finish attempt"
+     * navigation and postMessage the parent to stop the Proview session first.
      *
      * @param moodle_page $page The current quiz attempt page.
      */
     public function setup_attempt_page($page) {
-        global $DB, $USER;
+        global $DB, $USER, $CFG;
 
-        $config    = $this->proviewconfig;
-        $tsb       = !empty($config->tsbenabled);
-        $proctored = $config->proctoringtype !== 'none';
-        $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
+        $path      = $page->url->get_path();
+        $isattempt = strpos($path, '/mod/quiz/attempt.php') !== false;
+        $issummary = strpos($path, '/mod/quiz/summary.php') !== false;
+        $isreview  = strpos($path, '/mod/quiz/review.php') !== false;
 
-        if ($tsb && !$proctored) {
+        if (!$isattempt && !$issummary && !$isreview) {
             return;
         }
+
+        $config    = $this->proviewconfig;
+        $proctored = $config->proctoringtype !== 'none';
 
         if (!$proctored) {
             return;
         }
 
-        $attemptno = (int) $DB->count_records_select(
-            'quiz_attempts',
-            'quiz = :quiz AND userid = :userid AND state <> :abandoned',
-            ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
-        );
-        $attemptno = max(1, $attemptno);
-
-        $islive    = $config->proctoringtype === 'live';
-        $sessionid = $config->quizid . '-' . $USER->id . ($islive ? '' : '-' . $attemptno);
-
-        $exists = $DB->record_exists('quizaccess_proview_attempts', [
-            'quizid'    => $config->quizid,
-            'userid'    => $USER->id,
-            'attemptno' => $attemptno,
-        ]);
-        if (!$exists) {
-            $row              = new \stdClass();
-            $row->quizid      = (int) $config->quizid;
-            $row->userid      = (int) $USER->id;
-            $row->attemptno   = $attemptno;
-            $row->proctortype = $config->proctoringtype;
-            $row->timecreated = time();
-            $DB->insert_record('quizaccess_proview_attempts', $row);
-        }
-
-        try {
-            $tokenmgr = new \quizaccess_proview\token_manager();
-            $token    = $tokenmgr->get_token();
-        } catch (\moodle_exception $e) {
-            debugging(
-                '[quizaccess_proview] Token fetch failed in setup_attempt_page(): ' . $e->getMessage(),
-                DEBUG_DEVELOPER
-            );
+        if ($isreview) {
+            $page->set_pagelayout('secure');
+            $page->requires->js_amd_inline('
+                (function() {
+                    if (window.self === window.top) { return; }
+                    document.addEventListener("click", function(e) {
+                        var a = e.target.closest("a[href]");
+                        if (a && a.href.indexOf("/mod/quiz/view.php") !== -1) {
+                            e.preventDefault();
+                            window.parent.postMessage({ type: "stopProview", url: a.href }, "*");
+                        }
+                    });
+                })();
+            ');
             return;
         }
 
-        $cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
-        $page->requires->js(new \moodle_url($cdnurl));
-        $page->requires->js_call_amd(
-            'quizaccess_proview/proview_launch',
-            'init',
-            [$this->build_amd_config($token, $sessionid, false)]
-        );
+        $frameurl = (new \moodle_url(
+            $CFG->wwwroot . '/mod/quiz/accessrule/proview/frame.php',
+            [
+                'quizid'  => (int) $config->quizid,
+                'sesskey' => sesskey(),
+            ]
+        ))->out(false);
+
+        if ($isattempt) {
+            $inframe = optional_param('proview_iframe', 0, PARAM_INT);
+            if ($inframe) {
+                $attemptno = (int) $DB->count_records_select(
+                    'quiz_attempts',
+                    'quiz = :quiz AND userid = :userid AND state <> :abandoned',
+                    ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
+                );
+                $attemptno = max(1, $attemptno);
+                $exists = $DB->record_exists('quizaccess_proview_attempts', [
+                    'quizid' => $config->quizid, 'userid' => $USER->id, 'attemptno' => $attemptno,
+                ]);
+                if (!$exists) {
+                    $row              = new \stdClass();
+                    $row->quizid      = (int) $config->quizid;
+                    $row->userid      = (int) $USER->id;
+                    $row->attemptno   = $attemptno;
+                    $row->proctortype = $config->proctoringtype;
+                    $row->timecreated = time();
+                    $DB->insert_record('quizaccess_proview_attempts', $row);
+                }
+                $page->set_pagelayout('secure');
+                return;
+            }
+
+            redirect(new \moodle_url($frameurl));
+        }
+
+        $page->set_pagelayout('secure');
+
+        $jsfameurl = json_encode($frameurl);
+        $page->requires->js_amd_inline('
+            (function() {
+                if (window.self === window.top) {
+                    window.location.replace(' . $jsfameurl . ');
+                }
+            })();
+        ');
     }
 
     /**
