@@ -440,6 +440,118 @@ final class api_test extends \advanced_testcase {
     }
 
     /**
+     * create_tsb_wrapper() must use POST.
+     */
+    public function test_create_tsb_wrapper_uses_post_method(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['wrapper_url' => 'https://tsb.proview.io/launch?token=abc'];
+
+        api_testable::create_tsb_wrapper('bearer-tok', 'sess-1', '42', 'https://moodle/quiz', time() + 3600);
+
+        $this->assertSame('POST', api_testable::$calls[0]['method']);
+    }
+
+    /**
+     * create_tsb_wrapper() must POST to the proview_admin_url setting, not the callback URL.
+     */
+    public function test_create_tsb_wrapper_uses_admin_url_not_callback_url(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['wrapper_url' => 'https://tsb.proview.io/launch?token=abc'];
+
+        api_testable::create_tsb_wrapper('bearer-tok', 'sess-1', '42', 'https://moodle/quiz', time() + 3600);
+
+        $this->assertStringStartsWith('https://appv7.proview.io/embedded', api_testable::$calls[0]['url']);
+        $this->assertStringEndsWith('/proview/wrapper/create', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * create_tsb_wrapper() must send the Authorization header.
+     */
+    public function test_create_tsb_wrapper_sends_authorization_header(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['wrapper_url' => 'https://tsb.proview.io/launch?token=abc'];
+
+        api_testable::create_tsb_wrapper('my-tsb-token', 'sess-1', '42', 'https://moodle/quiz', time() + 3600);
+
+        $this->assertContains('Authorization: Bearer my-tsb-token', api_testable::$calls[0]['headers']);
+    }
+
+    /**
+     * create_tsb_wrapper() must send the correct body fields.
+     */
+    public function test_create_tsb_wrapper_sends_correct_body(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['wrapper_url' => 'https://tsb.proview.io/launch?token=abc'];
+
+        $expiry = time() + 3600;
+        api_testable::create_tsb_wrapper('tok', 'quiz-42-user-7-1', '7', 'https://moodle/quiz/attempt', $expiry);
+
+        $body = api_testable::$calls[0]['body'];
+        $this->assertSame('quiz-42-user-7-1', $body['session_id']);
+        $this->assertSame('7', $body['attendee_id']);
+        $this->assertSame('https://moodle/quiz/attempt', $body['redirect_url']);
+        $this->assertSame($expiry, $body['expiry']);
+    }
+
+    /**
+     * create_tsb_wrapper() must return the wrapper_url string from the response.
+     */
+    public function test_create_tsb_wrapper_returns_wrapper_url(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['wrapper_url' => 'https://tsb.proview.io/launch?token=xyz'];
+
+        $result = api_testable::create_tsb_wrapper('tok', 'sid', '1', 'https://moodle', time());
+
+        $this->assertSame('https://tsb.proview.io/launch?token=xyz', $result);
+    }
+
+    /**
+     * create_tsb_wrapper() must throw when wrapper_url is missing from the response.
+     */
+    public function test_create_tsb_wrapper_throws_when_wrapper_url_missing(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['status' => 'ok'];
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::create_tsb_wrapper('tok', 'sid', '1', 'https://moodle', time());
+    }
+
+    /**
+     * create_tsb_wrapper() must throw when wrapper_url is an empty string.
+     */
+    public function test_create_tsb_wrapper_throws_when_wrapper_url_empty(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockresponse = ['wrapper_url' => ''];
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::create_tsb_wrapper('tok', 'sid', '1', 'https://moodle', time());
+    }
+
+    /**
+     * create_tsb_wrapper() must propagate transport exceptions.
+     */
+    public function test_create_tsb_wrapper_propagates_exception(): void {
+        $this->resetAfterTest();
+        set_config('proview_admin_url', 'https://appv7.proview.io/embedded', 'quizaccess_proview');
+        api_testable::$mockexception = new \moodle_exception(
+            'proview_api_error',
+            'quizaccess_proview',
+            '',
+            'HTTP 503 from /proview/wrapper/create'
+        );
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::create_tsb_wrapper('tok', 'sid', '1', 'https://moodle', time());
+    }
+
+    /**
      * get_organizations() must build the URL from the proview_callback_url config value.
      */
     public function test_get_organizations_uses_callback_url_from_config(): void {
