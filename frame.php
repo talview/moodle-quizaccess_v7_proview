@@ -38,11 +38,18 @@ require_sesskey();
 $quizid = required_param('quizid', PARAM_INT);
 $cmid   = optional_param('cmid', 0, PARAM_INT);
 
-global $DB, $USER, $PAGE, $OUTPUT, $CFG;
+global $DB, $USER, $PAGE, $OUTPUT, $CFG, $SESSION;
 
 $config = $DB->get_record('quizaccess_proview', ['quizid' => $quizid], '*', MUST_EXIST);
 $quiz   = $DB->get_record('quiz', ['id' => $quizid], '*', MUST_EXIST);
 $cm     = get_coursemodule_from_instance('quiz', $quizid, $quiz->course, false, MUST_EXIST);
+
+if (!empty($quiz->password)) {
+    if (!isset($SESSION->passwordcheckedquizzes)) {
+        $SESSION->passwordcheckedquizzes = [];
+    }
+    $SESSION->passwordcheckedquizzes[$quizid] = true;
+}
 
 if (!$cmid) {
     $cmid = $cm->id;
@@ -116,81 +123,120 @@ $jssesskey            = json_encode(sesskey());
 $jsdatastoreurl       = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/datastore.php');
 $jsajaxurl            = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/startattempt_ajax.php');
 $jsisnewattempt       = $isnewattempt ? 'true' : 'false';
+$showpasswordnotice   = !empty($quiz->password);
 
 echo $OUTPUT->header();
 
 $iframesrc = s($urlwithflag);
+$passwordnoticehtml = $showpasswordnotice ? '
+<div id="proview-password-overlay" style="
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-family: sans-serif;">
+  <div style="
+      background: #fff; border-radius: 8px;
+      padding: 40px 48px; text-align: center;
+      max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
+    <div style="
+        width: 56px; height: 56px; border-radius: 50%;
+        background: #1cb841; display: flex; align-items: center;
+        justify-content: center; margin: 0 auto 20px;">
+      <span style="font-size: 26px; line-height: 1;">&#128274;</span>
+    </div>
+    <h2 style="margin: 0 0 10px; font-size: 18px; color: #222;">Password Verified</h2>
+    <p style="margin: 0 0 8px; font-size: 14px; color: #555; line-height: 1.5;">
+      This is a <strong>proctored exam</strong>. Your session will be monitored by Proview.
+    </p>
+    <p style="margin: 0 0 28px; font-size: 13px; color: #888; line-height: 1.5;">
+      Quiz password has been automatically verified. Click Continue to continue with your exam.
+    </p>
+    <button onclick="startProview()" style="
+        background: #1cb841; color: #fff; border: none; border-radius: 4px;
+        padding: 10px 32px; font-size: 15px; font-weight: bold; cursor: pointer;">
+      Continue
+    </button>
+  </div>
+</div>' : '';
+$autostartjs = $showpasswordnotice ? '' : 'startProview();';
 echo <<<HTML
 <style>
   body, html { margin: 0; padding: 0; overflow: hidden; }
   #proview-quiz-frame { width: 100vw; height: 100vh; border: none; display: none; }
 </style>
+{$passwordnoticehtml}
 <iframe id="proview-quiz-frame" src="{$iframesrc}"
         style="width:100vw;height:100vh;border:none;display:none"></iframe>
 <script>
-(function(i, s, o, g, r, a, m) {
-    i['TalviewProctor'] = r;
-    i[r] = i[r] || function() { (i[r].q = i[r].q || []).push(arguments); };
-    i[r].l = 1 * new Date();
-    a = s.createElement(o);
-    m = s.getElementsByTagName(o)[0];
-    a.async = 1;
-    a.src = g;
-    m.parentNode.insertBefore(a, m);
-})(window, document, 'script', {$jscdnurl}, 'tv');
+function startProview() {
+    var notice = document.getElementById('proview-password-overlay');
+    if (notice) { notice.style.display = 'none'; }
+    (function(i, s, o, g, r, a, m) {
+        i['TalviewProctor'] = r;
+        i[r] = i[r] || function() { (i[r].q = i[r].q || []).push(arguments); };
+        i[r].l = 1 * new Date();
+        a = s.createElement(o);
+        m = s.getElementsByTagName(o)[0];
+        a.async = 1;
+        a.src = g;
+        m.parentNode.insertBefore(a, m);
+    })(window, document, 'script', {$jscdnurl}, 'tv');
 
-tv('init', {$jstoken}, {
-    profileId:             {$jsprofileid},
-    session:               {$jssessionid},
-    session_type:          {$jssessiontype},
-    additionalInstruction: {$jsadditionalinstruct},
-    referenceLinks:        {$jsreferencelinks},
-    clear:                 false,
-    skipHardwareTest:      false,
-    previewStyle:          'position: fixed; bottom: 0px;',
-    initCallback:          function(err, sessionUuid) {
-        if (err) { return; }
-        window.ProviewStatus = 'start';
-        var isNew        = {$jsisnewattempt};
-        var playbackUrl  = {$jsplaybackbaseurl} + '/' + sessionUuid;
-        var iframe       = document.getElementById('proview-quiz-frame');
-        var sesskey      = {$jssesskey};
-        var quizId       = {$jsquizid};
-        var userId       = {$jsuserid};
-        var datastoreUrl = {$jsdatastoreurl};
-        function saveDatastore(attemptNo) {
-            fetch(datastoreUrl, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    quizid:     quizId,
-                    userid:     userId,
-                    attemptno:  attemptNo,
-                    proviewurl: playbackUrl,
-                    sesskey:    sesskey
+    tv('init', {$jstoken}, {
+        profileId:             {$jsprofileid},
+        session:               {$jssessionid},
+        session_type:          {$jssessiontype},
+        additionalInstruction: {$jsadditionalinstruct},
+        referenceLinks:        {$jsreferencelinks},
+        clear:                 false,
+        skipHardwareTest:      false,
+        previewStyle:          'position: fixed; bottom: 0px;',
+        initCallback:          function(err, sessionUuid) {
+            if (err) { return; }
+            window.ProviewStatus = 'start';
+            var isNew        = {$jsisnewattempt};
+            var playbackUrl  = {$jsplaybackbaseurl} + '/' + sessionUuid;
+            var iframe       = document.getElementById('proview-quiz-frame');
+            var sesskey      = {$jssesskey};
+            var quizId       = {$jsquizid};
+            var userId       = {$jsuserid};
+            var datastoreUrl = {$jsdatastoreurl};
+            function saveDatastore(attemptNo) {
+                fetch(datastoreUrl, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({
+                        quizid:     quizId,
+                        userid:     userId,
+                        attemptno:  attemptNo,
+                        proviewurl: playbackUrl,
+                        sesskey:    sesskey
+                    })
+                });
+            }
+            if (isNew) {
+                fetch({$jsajaxurl}, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body:    'quizid=' + quizId + '&cmid=' + {$jscmid} + '&sesskey=' + sesskey
                 })
-            });
-        }
-        if (isNew) {
-            fetch({$jsajaxurl}, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body:    'quizid=' + quizId + '&cmid=' + {$jscmid} + '&sesskey=' + sesskey
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (!data.url) { return; }
-                saveDatastore(data.attemptno);
-                var src = data.url + (data.url.indexOf('?') !== -1 ? '&' : '?') + 'page=0&proview_iframe=1';
-                iframe.src = src;
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.url) { return; }
+                    saveDatastore(data.attemptno);
+                    var src = data.url + (data.url.indexOf('?') !== -1 ? '&' : '?') + 'page=0&proview_iframe=1';
+                    iframe.src = src;
+                    iframe.style.display = 'block';
+                });
+            } else {
+                saveDatastore({$jsattemptno});
                 iframe.style.display = 'block';
-            });
-        } else {
-            saveDatastore({$jsattemptno});
-            iframe.style.display = 'block';
+            }
         }
-    }
-});
+    });
+}
+
+{$autostartjs}
 
 window.addEventListener('message', function(event) {
     if (!event.data || event.data.type !== 'stopProview') { return; }

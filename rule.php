@@ -70,6 +70,81 @@ class quizaccess_proview extends access_rule_base {
     }
 
     /**
+     * Split a comma-separated software list string into a trimmed array.
+     *
+     * @param string $value Comma-separated string (may be empty).
+     * @return string[] Array of non-empty trimmed strings.
+     */
+    private static function parse_csv_list(string $value): array {
+        return array_values(array_filter(array_map('trim', explode(',', $value))));
+    }
+
+    /**
+     * Build the extra params array for the TSB wrapper API call.
+     *
+     * @return array Fields merged into the ProviewWrapperRequestDto body.
+     */
+    private function build_tsb_wrapper_params(): array {
+        $config = $this->proviewconfig;
+        return [
+            'is_secure_browser' => true,
+            'secure_browser'    => [
+                'blacklisted_softwares_windows' => self::parse_csv_list((string) ($config->blacklistedwindowssoftwares ?? '')),
+                'blacklisted_softwares_mac'     => self::parse_csv_list((string) ($config->blacklistedmacsoftwares ?? '')),
+                'is_minimize'                   => (bool) ($config->minimizepermitted ?? false),
+                'is_record_screen'              => (bool) ($config->screenprotection ?? false),
+            ],
+        ];
+    }
+
+    /**
+     * Generate a TSB wrapper URL and schedule a JS redirect to it.
+     *
+     * Used for both TSB-only (Case 1) from add_preflight_check_form_fields().
+     *
+     * @return void
+     */
+    private function redirect_via_tsb_wrapper(): void {
+        global $PAGE, $USER, $DB;
+
+        $config    = $this->proviewconfig;
+        $islive    = $config->proctoringtype === 'live';
+        $attemptno = max(1, (int) $DB->count_records_select(
+            'quiz_attempts',
+            'quiz = :quiz AND userid = :userid AND state <> :abandoned',
+            ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
+        ));
+        $sessionid = $config->quizid . '-' . $USER->id . ($islive ? '' : '-' . $attemptno);
+
+        try {
+            $tokenmgr = new \quizaccess_proview\token_manager();
+            $token    = $tokenmgr->get_token();
+        } catch (\moodle_exception $e) {
+            debugging('[quizaccess_proview] Token fetch failed (TSB preflight): ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return;
+        }
+
+        $closetime = (int) ($this->quizobj->get_quiz()->timeclose ?? 0);
+        $expiry    = $closetime > 0 ? $closetime : time() + (3 * DAYSECS);
+
+        try {
+            $wrapperurl = \quizaccess_proview\api::create_tsb_wrapper(
+                $token,
+                $sessionid,
+                (string) $USER->id,
+                $PAGE->url->out(false),
+                $expiry,
+                $this->build_tsb_wrapper_params()
+            );
+        } catch (\moodle_exception $e) {
+            debugging('[quizaccess_proview] TSB wrapper creation failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return;
+        }
+
+        $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$wrapperurl]);
+    }
+
+    /**
      * Build the config array passed to the proview_launch AMD module.
      *
      * @param string $sessionid   Proview session ID.
@@ -132,12 +207,22 @@ class quizaccess_proview extends access_rule_base {
      * @return self|null the rule, if applicable, else null.
      */
     public static function make(quiz_settings $quizobj, $timenow, $canignoretimelimits) {
-        global $DB;
+        global $DB, $SESSION;
 
         $record = $DB->get_record('quizaccess_proview', ['quizid' => $quizobj->get_quizid()]);
 
         if (!$record || ($record->proctoringtype === 'none' && empty($record->tsbenabled))) {
             return null;
+        }
+
+        if ($record->proctoringtype !== 'none' || !empty($record->tsbenabled)) {
+            $quiz = $quizobj->get_quiz();
+            if (!empty($quiz->password)) {
+                if (!isset($SESSION->passwordcheckedquizzes)) {
+                    $SESSION->passwordcheckedquizzes = [];
+                }
+                $SESSION->passwordcheckedquizzes[$quiz->id] = true;
+            }
         }
 
         $instance = new self($quizobj, $timenow);
@@ -549,49 +634,24 @@ class quizaccess_proview extends access_rule_base {
      * @param int|null                      $attemptid Existing attempt ID, or null.
      */
     public function add_preflight_check_form_fields($quizform, $mform, $attemptid) {
-        global $PAGE, $USER, $DB, $CFG;
+        global $PAGE;
 
         $config    = $this->proviewconfig;
         $tsb       = !empty($config->tsbenabled);
         $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
         $proctored = $config->proctoringtype !== 'none';
 
-        if ($tsb && !$intbs) {
-            $islive    = $config->proctoringtype === 'live';
-            $attemptno = (int) $DB->count_records_select(
-                'quiz_attempts',
-                'quiz = :quiz AND userid = :userid AND state <> :abandoned',
-                ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
-            );
-            $attemptno = max(1, $attemptno);
-            $sessionid = $config->quizid . '-' . $USER->id . ($islive ? '' : '-' . $attemptno);
+        if ($tsb && !$intbs && !$proctored) {
+            $this->redirect_via_tsb_wrapper();
+            return;
+        }
 
-            try {
-                $tokenmgr = new \quizaccess_proview\token_manager();
-                $token    = $tokenmgr->get_token();
-            } catch (\moodle_exception $e) {
-                debugging('[quizaccess_proview] Token fetch failed (TSB preflight): ' . $e->getMessage(), DEBUG_DEVELOPER);
-                return;
-            }
-
+        if ($tsb && !$intbs && $proctored) {
             $redirecturl = $this->quizobj->view_url()->out(false);
-            $closetime   = (int) ($this->quizobj->get_quiz()->timeclose ?? 0);
-            $expiry      = $closetime > 0 ? $closetime : time() + (3 * DAYSECS);
-
-            try {
-                $wrapperurl = \quizaccess_proview\api::create_tsb_wrapper(
-                    $token,
-                    $sessionid,
-                    (string) $USER->id,
-                    $redirecturl,
-                    $expiry
-                );
-            } catch (\moodle_exception $e) {
-                debugging('[quizaccess_proview] TSB wrapper creation failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
-                return;
-            }
-
-            $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$wrapperurl]);
+            $tsblink     = 'https://pages.talview.com/securebrowser/index.html'
+                         . '?redirect_url=' . urlencode($redirecturl)
+                         . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
+            $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$tsblink]);
             return;
         }
 

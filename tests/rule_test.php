@@ -601,4 +601,93 @@ final class rule_test extends \advanced_testcase {
 
         $this->assertSame([], $rule->validate_preflight_check([], [], [], null));
     }
+
+    /**
+     * parse_csv_list() must split a comma-separated string into a trimmed array.
+     */
+    public function test_parse_csv_list_splits_and_trims(): void {
+        $method = new \ReflectionMethod(\quizaccess_proview::class, 'parse_csv_list');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(null, 'notepad.exe, calc.exe , chrome.exe');
+        $this->assertSame(['notepad.exe', 'calc.exe', 'chrome.exe'], $result);
+    }
+
+    /**
+     * parse_csv_list() must return an empty array for an empty string.
+     */
+    public function test_parse_csv_list_returns_empty_for_empty_string(): void {
+        $method = new \ReflectionMethod(\quizaccess_proview::class, 'parse_csv_list');
+        $method->setAccessible(true);
+
+        $this->assertSame([], $method->invoke(null, ''));
+    }
+
+    /**
+     * parse_csv_list() must filter out blank entries.
+     */
+    public function test_parse_csv_list_filters_blank_entries(): void {
+        $method = new \ReflectionMethod(\quizaccess_proview::class, 'parse_csv_list');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(null, 'notepad.exe,,calc.exe, ');
+        $this->assertSame(['notepad.exe', 'calc.exe'], $result);
+    }
+
+    /**
+     * build_tsb_wrapper_params() must set is_secure_browser to true and never include proview_token.
+     */
+    public function test_build_tsb_wrapper_params_sets_secure_browser_flag(): void {
+        $this->resetAfterTest();
+
+        $quizid = 95;
+        $quiz   = $this->make_quiz([
+            'id'                          => $quizid,
+            'proctoringtype'              => 'none',
+            'tsbenabled'                  => 1,
+            'proview_token'               => 'some-token',
+            'blacklistedwindowssoftwares' => 'notepad.exe,calc.exe',
+            'blacklistedmacsoftwares'     => 'TextEdit',
+            'minimizepermitted'           => 1,
+            'screenprotection'            => 0,
+        ]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $method = new \ReflectionMethod(\quizaccess_proview::class, 'build_tsb_wrapper_params');
+        $method->setAccessible(true);
+        $params = $method->invoke($rule);
+
+        $this->assertTrue($params['is_secure_browser']);
+        $this->assertArrayNotHasKey('proview_token', $params);
+        $this->assertSame(['notepad.exe', 'calc.exe'], $params['secure_browser']['blacklisted_softwares_windows']);
+        $this->assertSame(['TextEdit'], $params['secure_browser']['blacklisted_softwares_mac']);
+        $this->assertTrue($params['secure_browser']['is_minimize']);
+        $this->assertFalse($params['secure_browser']['is_record_screen']);
+    }
+
+    /**
+     * build_tsb_wrapper_params() must return empty arrays for unset software lists.
+     */
+    public function test_build_tsb_wrapper_params_empty_software_lists(): void {
+        $this->resetAfterTest();
+
+        $quizid = 96;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $method = new \ReflectionMethod(\quizaccess_proview::class, 'build_tsb_wrapper_params');
+        $method->setAccessible(true);
+        $params = $method->invoke($rule);
+
+        $this->assertSame([], $params['secure_browser']['blacklisted_softwares_windows']);
+        $this->assertSame([], $params['secure_browser']['blacklisted_softwares_mac']);
+    }
 }

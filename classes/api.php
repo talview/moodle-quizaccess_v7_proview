@@ -152,18 +152,20 @@ class api {
     /**
      * Create a Talview Secure Browser wrapper URL for a quiz attempt.
      *
-     * POST {proview_admin_url}/proview/wrapper/create
+     * POST {proview_callback_url}/proview/wrapper/create
      * Header: Authorization: Bearer {bearertoken}
      *
      * The wrapper URL, when opened, launches the Talview Secure Browser and
      * redirects the candidate back to the quiz attempt URL inside the TSB.
      *
-     * @param string $bearertoken Valid LMS Connector bearer token.
-     * @param string $sessionid   Session identifier — "{quizid}_{userid}_{attemptno}".
-     * @param string $attendeeid  Moodle user ID as a string.
-     * @param string $redirecturl Full quiz attempt URL the TSB should load after launch.
-     * @param int    $expiry      Unix timestamp at which the wrapper URL expires.
-     * @return string TSB wrapper URL.
+     * @param string      $bearertoken  Valid LMS Connector bearer token.
+     * @param string      $sessionid    Session identifier — "{quizid}-{userid}-{attemptno}".
+     * @param string      $attendeeid   Moodle user ID as a string.
+     * @param string      $redirecturl  Full quiz attempt URL the TSB should load after launch.
+     * @param int         $expiry       Unix timestamp at which the wrapper URL expires.
+     * @param array       $extraparams  Optional extra fields merged into the request body
+     *                                  (e.g. proview_token, is_secure_browser, secure_browser config).
+     * @return string TSB wrapper URL (signed_url from response).
      * @throws \moodle_exception On HTTP error or missing URL in response.
      */
     public static function create_tsb_wrapper(
@@ -171,21 +173,22 @@ class api {
         string $sessionid,
         string $attendeeid,
         string $redirecturl,
-        int $expiry
+        int $expiry,
+        array $extraparams = []
     ): string {
-        $adminurl = (string) get_config('quizaccess_proview', 'proview_admin_url');
-        $url      = rtrim($adminurl, '/') . '/proview/wrapper/create';
+        $callbackurl = (string) get_config('quizaccess_proview', 'proview_callback_url');
+        $url         = rtrim($callbackurl, '/') . '/proview/wrapper/create';
         $headers  = ['Authorization: Bearer ' . $bearertoken];
-        $body     = [
-            'session_id'   => $sessionid,
-            'attendee_id'  => $attendeeid,
-            'redirect_url' => $redirecturl,
-            'expiry'       => $expiry,
-        ];
+        $body     = array_merge([
+            'session_external_id'  => $sessionid,
+            'attendee_external_id' => $attendeeid,
+            'redirect_url'         => $redirecturl,
+            'expiry'               => gmdate('Y-m-d\TH:i:s\Z', $expiry),
+        ], $extraparams);
 
         $response = static::make_request('POST', $url, $headers, $body);
 
-        if (empty($response['wrapper_url'])) {
+        if (empty($response['signed_url'])) {
             throw new \moodle_exception(
                 'proview_api_error',
                 'quizaccess_proview',
@@ -194,7 +197,7 @@ class api {
             );
         }
 
-        return (string) $response['wrapper_url'];
+        return (string) $response['signed_url'];
     }
 
     /**
@@ -253,7 +256,7 @@ class api {
                 'proview_api_error',
                 'quizaccess_proview',
                 '',
-                'HTTP ' . $httpstatus . ' from ' . $url
+                'HTTP ' . $httpstatus . ' from ' . $url . ' — ' . $raw
             );
         }
 
