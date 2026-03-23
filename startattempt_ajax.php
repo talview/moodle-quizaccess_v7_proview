@@ -48,7 +48,6 @@ require_login($course, false, $cm);
 
 $quizobj = \mod_quiz\quiz_settings::create($cm->instance, $USER->id);
 
-// If an in-progress attempt already exists, return it (idempotent).
 $attempts    = quiz_get_user_attempts($quizobj->get_quizid(), $USER->id, 'all', true);
 $lastattempt = end($attempts) ?: false;
 

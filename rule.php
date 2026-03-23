@@ -621,6 +621,35 @@ class quizaccess_proview extends access_rule_base {
     }
 
     /**
+     * Add a "View Proview Recordings" link on the quiz view page for managers.
+     *
+     * Returns an empty array for candidates so nothing extra is shown.
+     *
+     * @return string[] Array of HTML strings shown on mod/quiz/view.php.
+     */
+    public function description(): array {
+        global $CFG;
+
+        if (!has_capability('quizaccess/proview:manage', $this->quizobj->get_context())) {
+            return [];
+        }
+
+        $cm  = $this->quizobj->get_cm();
+        $url = new \moodle_url(
+            $CFG->wwwroot . '/mod/quiz/accessrule/proview/recordings.php',
+            ['cmid' => (int) $cm->id]
+        );
+
+        return [
+            \html_writer::link(
+                $url,
+                get_string('proview_recordings_header', 'quizaccess_proview'),
+                ['class' => 'btn btn-outline-secondary btn-sm']
+            ),
+        ];
+    }
+
+    /**
      * Inject Proview launch logic into the preflight form page.
      *
      * This runs before the quiz attempt is created (and before the timer starts).
@@ -730,24 +759,6 @@ class quizaccess_proview extends access_rule_base {
         if ($isattempt) {
             $inframe = optional_param('proview_iframe', 0, PARAM_INT);
             if ($inframe) {
-                $attemptno = (int) $DB->count_records_select(
-                    'quiz_attempts',
-                    'quiz = :quiz AND userid = :userid AND state <> :abandoned',
-                    ['quiz' => $config->quizid, 'userid' => $USER->id, 'abandoned' => 'abandoned']
-                );
-                $attemptno = max(1, $attemptno);
-                $exists = $DB->record_exists('quizaccess_proview_attempts', [
-                    'quizid' => $config->quizid, 'userid' => $USER->id, 'attemptno' => $attemptno,
-                ]);
-                if (!$exists) {
-                    $row              = new \stdClass();
-                    $row->quizid      = (int) $config->quizid;
-                    $row->userid      = (int) $USER->id;
-                    $row->attemptno   = $attemptno;
-                    $row->proctortype = $config->proctoringtype;
-                    $row->timecreated = time();
-                    $DB->insert_record('quizaccess_proview_attempts', $row);
-                }
                 $page->set_pagelayout('secure');
                 return;
             }

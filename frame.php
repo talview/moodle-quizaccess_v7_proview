@@ -86,8 +86,7 @@ $sessiontypemap = [
 ];
 $sessiontype = $sessiontypemap[$config->proctoringtype] ?? 'ai_proctor';
 
-$cdnurl          = (string) get_config('quizaccess_proview', 'proview_cdn_url');
-$playbackbaseurl = (string) get_config('quizaccess_proview', 'proview_admin_url');
+$cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
 
 $reflinksraw = (string) ($config->referencelinks ?? '');
 $reflinks    = [];
@@ -116,11 +115,7 @@ $jsreferencelinks     = json_encode(json_encode($reflinks));
 $jscdnurl             = json_encode($cdnurl);
 $jsquizid             = json_encode((int) $quizid);
 $jscmid               = json_encode((int) $cmid);
-$jsuserid             = json_encode((int) $USER->id);
-$jsattemptno          = json_encode((int) $attemptno);
-$jsplaybackbaseurl    = json_encode($playbackbaseurl);
 $jssesskey            = json_encode(sesskey());
-$jsdatastoreurl       = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/datastore.php');
 $jsajaxurl            = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/startattempt_ajax.php');
 $jsisnewattempt       = $isnewattempt ? 'true' : 'false';
 $showpasswordnotice   = !empty($quiz->password);
@@ -194,26 +189,10 @@ function startProview() {
         initCallback:          function(err, sessionUuid) {
             if (err) { return; }
             window.ProviewStatus = 'start';
-            var isNew        = {$jsisnewattempt};
-            var playbackUrl  = {$jsplaybackbaseurl} + '/' + sessionUuid;
-            var iframe       = document.getElementById('proview-quiz-frame');
-            var sesskey      = {$jssesskey};
-            var quizId       = {$jsquizid};
-            var userId       = {$jsuserid};
-            var datastoreUrl = {$jsdatastoreurl};
-            function saveDatastore(attemptNo) {
-                fetch(datastoreUrl, {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({
-                        quizid:     quizId,
-                        userid:     userId,
-                        attemptno:  attemptNo,
-                        proviewurl: playbackUrl,
-                        sesskey:    sesskey
-                    })
-                });
-            }
+            var isNew   = {$jsisnewattempt};
+            var iframe  = document.getElementById('proview-quiz-frame');
+            var sesskey = {$jssesskey};
+            var quizId  = {$jsquizid};
             if (isNew) {
                 fetch({$jsajaxurl}, {
                     method:  'POST',
@@ -223,13 +202,11 @@ function startProview() {
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (!data.url) { return; }
-                    saveDatastore(data.attemptno);
                     var src = data.url + (data.url.indexOf('?') !== -1 ? '&' : '?') + 'page=0&proview_iframe=1';
                     iframe.src = src;
                     iframe.style.display = 'block';
                 });
             } else {
-                saveDatastore({$jsattemptno});
                 iframe.style.display = 'block';
             }
         }
