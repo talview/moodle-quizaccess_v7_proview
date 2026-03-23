@@ -690,4 +690,58 @@ final class rule_test extends \advanced_testcase {
         $this->assertSame([], $params['secure_browser']['blacklisted_softwares_windows']);
         $this->assertSame([], $params['secure_browser']['blacklisted_softwares_mac']);
     }
+
+    // Tests for description().
+
+    /**
+     * description() must return an empty array for a user without manage capability.
+     */
+    public function test_description_returns_empty_for_non_manager(): void {
+        $this->resetAfterTest();
+
+        $quizid = 100;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $context = \context_system::instance();
+        $student = $this->getDataGenerator()->create_user();
+        $this->setUser($student);
+
+        $cm = (object) ['id' => 1];
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_context')->willReturn($context);
+        $quizobj->method('get_cm')->willReturn($cm);
+
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertSame([], $rule->description());
+    }
+
+    /**
+     * description() must return a link to recordings.php for a user with manage capability.
+     */
+    public function test_description_returns_link_for_manager(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $quizid = 101;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $context = \context_system::instance();
+        $cm      = (object) ['id' => 55];
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_context')->willReturn($context);
+        $quizobj->method('get_cm')->willReturn($cm);
+
+        $rule   = \quizaccess_proview::make($quizobj, time(), false);
+        $result = $rule->description();
+
+        $this->assertNotEmpty($result);
+        $this->assertStringContainsString('recordings.php', $result[0]);
+        $this->assertStringContainsString('cmid=55', $result[0]);
+    }
 }

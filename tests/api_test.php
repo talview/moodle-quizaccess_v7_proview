@@ -579,4 +579,223 @@ final class api_test extends \advanced_testcase {
             api_testable::$calls[0]['url']
         );
     }
+
+    /**
+     * get_playback_sessions() must use GET.
+     */
+    public function test_get_playback_sessions_uses_get_method(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_playback_sessions('bearer-tok', 10, 3);
+
+        $this->assertSame('GET', api_testable::$calls[0]['method']);
+    }
+
+    /**
+     * get_playback_sessions() must call the /proview/playback endpoint.
+     */
+    public function test_get_playback_sessions_calls_playback_url(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_playback_sessions('bearer-tok', 10, 3);
+
+        $this->assertStringContains('/proview/playback', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * get_playback_sessions() must include quiz_id and course_id as query params.
+     */
+    public function test_get_playback_sessions_includes_quiz_and_course_params(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_playback_sessions('bearer-tok', 42, 7);
+
+        $url = api_testable::$calls[0]['url'];
+        $this->assertStringContains('quiz_id=42', $url);
+        $this->assertStringContains('course_id=7', $url);
+    }
+
+    /**
+     * get_playback_sessions() must include limit and offset query params.
+     */
+    public function test_get_playback_sessions_includes_limit_and_offset_params(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_playback_sessions('bearer-tok', 1, 2, 50, 25);
+
+        $url = api_testable::$calls[0]['url'];
+        $this->assertStringContains('limit=50', $url);
+        $this->assertStringContains('offset=25', $url);
+    }
+
+    /**
+     * get_playback_sessions() must send the Authorization header.
+     */
+    public function test_get_playback_sessions_sends_authorization_header(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = [];
+
+        api_testable::get_playback_sessions('my-playback-bearer', 1, 1);
+
+        $this->assertContains(
+            'Authorization: Bearer my-playback-bearer',
+            api_testable::$calls[0]['headers']
+        );
+    }
+
+    /**
+     * get_playback_sessions() must return the decoded response array.
+     */
+    public function test_get_playback_sessions_returns_response(): void {
+        $this->resetAfterTest();
+        $sessions = [
+            ['session_uuid' => 'uuid-1', 'attendee' => ['lms_user_id' => 5], 'final_rating' => 'high'],
+            ['session_uuid' => 'uuid-2', 'attendee' => ['lms_user_id' => 6], 'final_rating' => 'low'],
+        ];
+        api_testable::$mockresponse = $sessions;
+
+        $result = api_testable::get_playback_sessions('tok', 10, 3);
+
+        $this->assertSame($sessions, $result);
+    }
+
+    /**
+     * get_playback_sessions() must propagate transport exceptions.
+     */
+    public function test_get_playback_sessions_propagates_exception(): void {
+        $this->resetAfterTest();
+        api_testable::$mockexception = new \moodle_exception(
+            'proview_api_error',
+            'quizaccess_proview',
+            '',
+            'HTTP 502 from /proview/playback'
+        );
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::get_playback_sessions('tok', 1, 1);
+    }
+
+    /**
+     * get_playback_token() must use POST.
+     */
+    public function test_get_playback_token_uses_post_method(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['token' => 'playback-tok'];
+
+        api_testable::get_playback_token('uuid-abc', 'proctor-tok');
+
+        $this->assertSame('POST', api_testable::$calls[0]['method']);
+    }
+
+    /**
+     * get_playback_token() must call the /token/playback endpoint.
+     */
+    public function test_get_playback_token_calls_token_playback_url(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['token' => 'playback-tok'];
+
+        api_testable::get_playback_token('uuid-abc', 'proctor-tok');
+
+        $this->assertStringEndsWith('/token/playback', api_testable::$calls[0]['url']);
+    }
+
+    /**
+     * get_playback_token() must include the app-id header.
+     */
+    public function test_get_playback_token_sends_app_id_header(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        $parsed    = parse_url($CFG->wwwroot);
+        $expectedappid = md5($parsed['scheme'] . '://' . $parsed['host']);
+        api_testable::$mockresponse = ['token' => 'playback-tok'];
+
+        api_testable::get_playback_token('uuid-abc', 'proctor-tok');
+
+        $this->assertContains(
+            'app-id: ' . $expectedappid,
+            api_testable::$calls[0]['headers']
+        );
+    }
+
+    /**
+     * get_playback_token() must send session_uuid, proctor_token, and validity in the body.
+     */
+    public function test_get_playback_token_sends_correct_body(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['token' => 'playback-tok'];
+
+        api_testable::get_playback_token('my-session-uuid', 'my-proctor-token', 30);
+
+        $body = api_testable::$calls[0]['body'];
+        $this->assertSame('my-session-uuid', $body['session_uuid']);
+        $this->assertSame('my-proctor-token', $body['proctor_token']);
+        $this->assertSame(30, $body['validity']);
+    }
+
+    /**
+     * get_playback_token() must use the default validity of 60 when not specified.
+     */
+    public function test_get_playback_token_default_validity_is_60(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['token' => 'playback-tok'];
+
+        api_testable::get_playback_token('uuid', 'proctor-tok');
+
+        $this->assertSame(60, api_testable::$calls[0]['body']['validity']);
+    }
+
+    /**
+     * get_playback_token() must return the token string from the response.
+     */
+    public function test_get_playback_token_returns_token(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['token' => 'eyJhbGciOiJSUzI1Ni.playback'];
+
+        $result = api_testable::get_playback_token('uuid', 'proctor');
+
+        $this->assertSame('eyJhbGciOiJSUzI1Ni.playback', $result);
+    }
+
+    /**
+     * get_playback_token() must throw when the token key is absent from the response.
+     */
+    public function test_get_playback_token_throws_when_token_missing(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['status' => 'ok'];
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::get_playback_token('uuid', 'proctor');
+    }
+
+    /**
+     * get_playback_token() must throw when the token is an empty string.
+     */
+    public function test_get_playback_token_throws_when_token_empty(): void {
+        $this->resetAfterTest();
+        api_testable::$mockresponse = ['token' => ''];
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::get_playback_token('uuid', 'proctor');
+    }
+
+    /**
+     * get_playback_token() must propagate transport exceptions.
+     */
+    public function test_get_playback_token_propagates_exception(): void {
+        $this->resetAfterTest();
+        api_testable::$mockexception = new \moodle_exception(
+            'proview_api_error',
+            'quizaccess_proview',
+            '',
+            'HTTP 401 from /token/playback'
+        );
+
+        $this->expectException(\moodle_exception::class);
+        api_testable::get_playback_token('uuid', 'proctor');
+    }
 }
