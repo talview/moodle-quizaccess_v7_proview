@@ -92,7 +92,7 @@ jobs:
         continue-on-error: true
 
       - name: PHP Code Sniffer
-        run: phpcs --ignore=*/vendor/*,*/node_modules/*,*/amd/build/* --max-warnings=0 .
+        run: phpcs --ignore=*/vendor/*,*/node_modules/*,*/amd/build/* .
         working-directory: ${{ github.workspace }}/moodle/mod/quiz/accessrule/proview
 
       - name: PHP Doc checker
