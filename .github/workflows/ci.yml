@@ -91,14 +91,8 @@ jobs:
         run: moodle-plugin-ci phpmd
         continue-on-error: true
 
-      - name: Remove vendor before PHPCS
-        run: rm -rf ${{ github.workspace }}/moodle/mod/quiz/accessrule/proview/vendor
-
       - name: PHP Code Sniffer
-        run: moodle-plugin-ci phpcs --max-warnings 0
-
-      - name: Reinstall runtime dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction
+        run: phpcs --ignore=*/vendor/*,*/node_modules/*,*/amd/build/* --max-warnings=0 .
         working-directory: ${{ github.workspace }}/moodle/mod/quiz/accessrule/proview
 
       - name: PHP Doc checker
