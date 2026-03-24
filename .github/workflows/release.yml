@@ -137,6 +137,9 @@ jobs:
           echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT
           echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
 
+      - name: Install runtime dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
       - name: Prepare plugin directory
         run: |
           mkdir -p /tmp/build/quizaccess_proview
@@ -145,7 +148,6 @@ jobs:
                    --exclude='.husky' \
                    --exclude='.zed' \
                    --exclude='node_modules' \
-                   --exclude='vendor' \
                    --exclude='CLAUDE.md' \
                    --exclude='.gitignore' \
                    --exclude='.phpcs.xml' \

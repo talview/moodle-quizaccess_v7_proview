@@ -24,6 +24,8 @@
 
 namespace quizaccess_proview;
 
+use quizaccess_proview\sentry;
+
 /**
  * Thin cache wrapper for the LMS Connector bearer token.
  *
@@ -59,14 +61,31 @@ class token_manager {
      * @throws \moodle_exception On authentication failure.
      */
     public function get_token(): string {
+        $span = sentry::start_span('cache.get', 'proview_auth_token');
+
         $cached = $this->cache->get($this->cachekey);
         if ($cached !== false) {
+            if ($span !== null) {
+                $span->setData(['cache.hit' => true]);
+                $span->setStatus(\Sentry\Tracing\SpanStatus::ok());
+                $span->finish();
+            }
             return $cached;
         }
 
-        $token = ($this->authfn)();
-        $this->cache->set($this->cachekey, $token);
-        return $token;
+        if ($span !== null) {
+            $span->setData(['cache.hit' => false]);
+            $span->finish();
+        }
+
+        try {
+            $token = ($this->authfn)();
+            $this->cache->set($this->cachekey, $token);
+            return $token;
+        } catch (\Throwable $e) {
+            sentry::capture_exception($e);
+            throw $e;
+        }
     }
 
     /**

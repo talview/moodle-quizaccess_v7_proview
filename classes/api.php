@@ -293,65 +293,98 @@ class api {
      * @throws \moodle_exception On curl error, non-2xx HTTP status, or JSON decode failure.
      */
     protected static function make_request(string $method, string $url, array $headers, ?array $body): array {
-        $curl = new \curl(['ignoresecurity' => false]);
+        $span = sentry::start_span('http.client', $method . ' ' . $url);
 
-        $headers[] = 'Content-Type: application/json';
-        $headers[] = 'Accept: application/json';
+        try {
+            $curl = new \curl(['ignoresecurity' => false]);
 
-        $curl->setHeader($headers);
+            $headers[] = 'Content-Type: application/json';
+            $headers[] = 'Accept: application/json';
 
-        $options = [
-            'CURLOPT_RETURNTRANSFER' => true,
-            'CURLOPT_TIMEOUT'        => 30,
-        ];
+            $curl->setHeader($headers);
 
-        if ($method === 'POST') {
-            $rawbody  = $body !== null ? json_encode($body) : '{}';
-            $options['CURLOPT_POSTFIELDS'] = $rawbody;
-            $raw = $curl->post($url, $rawbody, $options);
-        } else {
-            $raw = $curl->get($url, [], $options);
+            $options = [
+                'CURLOPT_RETURNTRANSFER' => true,
+                'CURLOPT_TIMEOUT'        => 30,
+            ];
+
+            if ($method === 'POST') {
+                $rawbody  = $body !== null ? json_encode($body) : '{}';
+                $options['CURLOPT_POSTFIELDS'] = $rawbody;
+                $raw = $curl->post($url, $rawbody, $options);
+            } else {
+                $raw = $curl->get($url, [], $options);
+            }
+
+            if ($curl->errno !== 0) {
+                $e = new \moodle_exception(
+                    'proview_api_error',
+                    'quizaccess_proview',
+                    '',
+                    'cURL error ' . $curl->errno . ': ' . $curl->error
+                );
+                sentry::capture_exception($e);
+                if ($span !== null) {
+                    $span->setStatus(\Sentry\Tracing\SpanStatus::internalError());
+                    $span->finish();
+                }
+                throw $e;
+            }
+
+            $info       = $curl->get_info();
+            $httpstatus = (int) ($info['http_code'] ?? 0);
+
+            global $PAGE;
+            if (!empty($PAGE) && !CLI_SCRIPT) {
+                $label   = json_encode('[quizaccess_proview] ' . $method . ' ' . $url . ' HTTP ' . $httpstatus);
+                $payload = json_encode(json_decode($raw, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $PAGE->requires->js_init_code('console.log(' . $label . ', ' . $payload . ');');
+            }
+
+            if ($httpstatus < 200 || $httpstatus >= 300) {
+                $e = new \moodle_exception(
+                    'proview_api_error',
+                    'quizaccess_proview',
+                    '',
+                    'HTTP ' . $httpstatus . ' from ' . $url . ' — ' . $raw
+                );
+                sentry::capture_exception($e);
+                if ($span !== null) {
+                    $span->setStatus(\Sentry\Tracing\SpanStatus::createFromHttpStatusCode($httpstatus));
+                    $span->finish();
+                }
+                throw $e;
+            }
+
+            $decoded = json_decode($raw, true);
+
+            if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                $e = new \moodle_exception(
+                    'proview_api_error',
+                    'quizaccess_proview',
+                    '',
+                    'Invalid JSON response: ' . json_last_error_msg()
+                );
+                sentry::capture_exception($e);
+                if ($span !== null) {
+                    $span->setStatus(\Sentry\Tracing\SpanStatus::internalError());
+                    $span->finish();
+                }
+                throw $e;
+            }
+
+            if ($span !== null) {
+                $span->setStatus(\Sentry\Tracing\SpanStatus::ok());
+                $span->finish();
+            }
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (\Throwable $e) {
+            if ($span !== null) {
+                $span->setStatus(\Sentry\Tracing\SpanStatus::internalError());
+                $span->finish();
+            }
+            throw $e;
         }
-
-        if ($curl->errno !== 0) {
-            throw new \moodle_exception(
-                'proview_api_error',
-                'quizaccess_proview',
-                '',
-                'cURL error ' . $curl->errno . ': ' . $curl->error
-            );
-        }
-
-        $info       = $curl->get_info();
-        $httpstatus = (int) ($info['http_code'] ?? 0);
-
-        global $PAGE;
-        if (!empty($PAGE) && !CLI_SCRIPT) {
-            $label   = json_encode('[quizaccess_proview] ' . $method . ' ' . $url . ' HTTP ' . $httpstatus);
-            $payload = json_encode(json_decode($raw, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $PAGE->requires->js_init_code('console.log(' . $label . ', ' . $payload . ');');
-        }
-
-        if ($httpstatus < 200 || $httpstatus >= 300) {
-            throw new \moodle_exception(
-                'proview_api_error',
-                'quizaccess_proview',
-                '',
-                'HTTP ' . $httpstatus . ' from ' . $url . ' — ' . $raw
-            );
-        }
-
-        $decoded = json_decode($raw, true);
-
-        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
-            throw new \moodle_exception(
-                'proview_api_error',
-                'quizaccess_proview',
-                '',
-                'Invalid JSON response: ' . json_last_error_msg()
-            );
-        }
-
-        return is_array($decoded) ? $decoded : [];
     }
 }
