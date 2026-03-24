@@ -560,6 +560,88 @@ final class rule_test extends \advanced_testcase {
         $this->assertArrayHasKey('proview_token', $errors);
     }
 
+    // Tests for validate_settings_form_fields.
+
+    /**
+     * Live proctoring without timeopen must produce an error on timeopen.
+     */
+    public function test_validate_settings_live_requires_timeopen(): void {
+        $data   = ['proctoringtype' => 'live', 'timeopen' => 0, 'timeclose' => time() + 3600];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayHasKey('timeopen', $errors);
+        $this->assertArrayNotHasKey('timeclose', $errors);
+    }
+
+    /**
+     * Live proctoring without timeclose must produce an error on timeclose.
+     */
+    public function test_validate_settings_live_requires_timeclose(): void {
+        $data   = ['proctoringtype' => 'live', 'timeopen' => time(), 'timeclose' => 0];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayHasKey('timeclose', $errors);
+        $this->assertArrayNotHasKey('timeopen', $errors);
+    }
+
+    /**
+     * Live proctoring without either timeopen or timeclose must produce errors on both fields.
+     */
+    public function test_validate_settings_live_requires_both_times(): void {
+        $data   = ['proctoringtype' => 'live', 'timeopen' => 0, 'timeclose' => 0];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayHasKey('timeopen', $errors);
+        $this->assertArrayHasKey('timeclose', $errors);
+    }
+
+    /**
+     * Live proctoring with both times set must not produce time errors.
+     */
+    public function test_validate_settings_live_no_error_when_times_set(): void {
+        $data   = ['proctoringtype' => 'live', 'timeopen' => time(), 'timeclose' => time() + 3600];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayNotHasKey('timeopen', $errors);
+        $this->assertArrayNotHasKey('timeclose', $errors);
+    }
+
+    /**
+     * Non-live proctoring types must not require timeopen or timeclose.
+     */
+    public function test_validate_settings_no_time_error_for_non_live(): void {
+        $data   = ['proctoringtype' => 'ai', 'timeopen' => 0, 'timeclose' => 0];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayNotHasKey('timeopen', $errors);
+        $this->assertArrayNotHasKey('timeclose', $errors);
+    }
+
     // Tests for is_preflight_check_required.
 
     /**
