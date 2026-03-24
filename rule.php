@@ -432,6 +432,15 @@ class quizaccess_proview extends access_rule_base {
             $errors['proview_token'] = get_string('proview_token_required', 'quizaccess_proview');
         }
 
+        if (($data['proctoringtype'] ?? 'none') === 'live') {
+            if (empty($data['timeopen'])) {
+                $errors['timeopen'] = get_string('live_requires_timeopen', 'quizaccess_proview');
+            }
+            if (empty($data['timeclose'])) {
+                $errors['timeclose'] = get_string('live_requires_timeclose', 'quizaccess_proview');
+            }
+        }
+
         return $errors;
     }
 
