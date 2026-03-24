@@ -209,6 +209,8 @@ class quizaccess_proview extends access_rule_base {
     public static function make(quiz_settings $quizobj, $timenow, $canignoretimelimits) {
         global $DB, $SESSION;
 
+        \quizaccess_proview\sentry::init();
+
         $record = $DB->get_record('quizaccess_proview', ['quizid' => $quizobj->get_quizid()]);
 
         if (!$record || ($record->proctoringtype === 'none' && empty($record->tsbenabled))) {
