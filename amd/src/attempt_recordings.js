@@ -37,7 +37,6 @@ define(['jquery'], function($) {
             return;
         }
         document.getElementById('proview-recording-iframe').src = url;
-        document.getElementById('proview-modal-external').href  = url;
         $(modal).modal('show');
     }
 

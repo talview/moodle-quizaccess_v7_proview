@@ -3,6 +3,10 @@
 
     Renders a searchable, scrollable table of Proview recording sessions.
 
+    @package    quizaccess_proview
+    @copyright  2026 Talview Inc.
+    @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+
     Example context (json):
     {
         "hasattempts": true,
@@ -24,10 +28,6 @@
             }
         ]
     }
-
-    @package    quizaccess_proview
-    @copyright  2026 Talview Inc.
-    @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
 }}
 <div class="quizaccess-proview-recordings">
     {{#hasattempts}}
@@ -105,13 +105,6 @@
                 <h5 class="modal-title" id="proview-modal-title">
                     {{#str}}proview_recordings_header, quizaccess_proview{{/str}}
                 </h5>
-                <a id="proview-modal-external"
-                   href="#"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="btn btn-sm btn-outline-secondary ml-auto mr-2">
-                    &#8599; Open in tab
-                </a>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
