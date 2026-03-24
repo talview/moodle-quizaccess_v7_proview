@@ -49,7 +49,6 @@ final class rule_test extends \advanced_testcase {
             'instance'                    => 1,
             'proctoringtype'              => 'none',
             'proview_token'               => null,
-            'eventschedulingtype'         => null,
             'proctorinstructions'         => '',
             'candidateinstructions'       => '',
             'referencelinks'              => null,
@@ -482,18 +481,83 @@ final class rule_test extends \advanced_testcase {
         $this->assertSame('Finder', $record->whitelistedmacsoftwares);
     }
 
+    // Tests for validate_settings_form_fields.
+
     /**
-     * save_settings() must persist eventschedulingtype.
+     * A token error must be added when proctoringtype is active and no token is selected.
      */
-    public function test_save_settings_persists_eventschedulingtype(): void {
-        global $DB;
-        $this->resetAfterTest();
+    public function test_validate_settings_token_required_when_proctoring_active(): void {
+        $data   = ['proctoringtype' => 'ai', 'tsbenabled' => 0, 'proview_token' => ''];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
 
-        $quiz = $this->make_quiz(['id' => 56, 'proctoringtype' => 'live', 'eventschedulingtype' => 'bulk']);
-        \quizaccess_proview::save_settings($quiz);
+        $this->assertArrayHasKey('proview_token', $errors);
+    }
 
-        $record = $DB->get_record('quizaccess_proview', ['quizid' => 56]);
-        $this->assertSame('bulk', $record->eventschedulingtype);
+    /**
+     * A token error must be added when TSB is enabled and no token is selected.
+     */
+    public function test_validate_settings_token_required_when_tsb_active(): void {
+        $data   = ['proctoringtype' => 'none', 'tsbenabled' => 1, 'proview_token' => ''];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayHasKey('proview_token', $errors);
+    }
+
+    /**
+     * No token error when both proctoring type is active and TSB is enabled with a token selected.
+     */
+    public function test_validate_settings_no_error_when_token_provided(): void {
+        $data   = ['proctoringtype' => 'live', 'tsbenabled' => 1, 'proview_token' => 'some-uuid-token'];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayNotHasKey('proview_token', $errors);
+    }
+
+    /**
+     * No token error when proctoring is none and TSB is disabled, even with no token.
+     */
+    public function test_validate_settings_no_error_when_proctoring_none_and_no_token(): void {
+        $data   = ['proctoringtype' => 'none', 'tsbenabled' => 0, 'proview_token' => ''];
+        $errors = \quizaccess_proview::validate_settings_form_fields(
+            [],
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayNotHasKey('proview_token', $errors);
+    }
+
+    /**
+     * Existing errors must be preserved and returned alongside any new token error.
+     */
+    public function test_validate_settings_passes_through_existing_errors(): void {
+        $data          = ['proctoringtype' => 'ai', 'tsbenabled' => 0, 'proview_token' => ''];
+        $existingerror = ['somefield' => 'Some existing error'];
+        $errors        = \quizaccess_proview::validate_settings_form_fields(
+            $existingerror,
+            $data,
+            [],
+            $this->createMock(\mod_quiz_mod_form::class)
+        );
+
+        $this->assertArrayHasKey('somefield', $errors);
+        $this->assertArrayHasKey('proview_token', $errors);
     }
 
     // Tests for is_preflight_check_required.

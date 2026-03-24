@@ -76,5 +76,15 @@ function xmldb_quizaccess_proview_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026032417, 'quizaccess', 'proview');
     }
 
+    if ($oldversion < 2026032500) {
+        $table = new xmldb_table('quizaccess_proview');
+        $field = new xmldb_field('eventschedulingtype');
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026032500, 'quizaccess', 'proview');
+    }
+
     return true;
 }

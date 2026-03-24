@@ -248,14 +248,6 @@ class quizaccess_proview extends access_rule_base {
             get_string('proview_proctoring_header', 'quizaccess_proview')
         );
 
-        $orgs     = [];
-        $orgsfail = false;
-        try {
-            $orgs = \quizaccess_proview\api::get_organizations();
-        } catch (\moodle_exception $e) {
-            $orgsfail = true;
-        }
-
         try {
             $tokenmgr      = new \quizaccess_proview\token_manager();
             $bearer        = $tokenmgr->get_token();
@@ -298,36 +290,6 @@ class quizaccess_proview extends access_rule_base {
         );
         $mform->addHelpButton('proctoringtype', 'proctoringtype', 'quizaccess_proview');
         $mform->setDefault('proctoringtype', 'none');
-
-        $schedulingoptions = ['' => get_string('choosedots')];
-        if (!$orgsfail) {
-            foreach ($orgs as $org) {
-                $types = $org['event_schedule_type'] ?? [];
-                foreach ($types as $type) {
-                    if ($type !== '' && !array_key_exists($type, $schedulingoptions)) {
-                        $schedulingoptions[$type] = $type;
-                    }
-                }
-            }
-        }
-        if (count($schedulingoptions) > 1) {
-            $mform->addElement(
-                'select',
-                'eventschedulingtype',
-                get_string('eventschedulingtype', 'quizaccess_proview'),
-                $schedulingoptions
-            );
-        } else {
-            $mform->addElement(
-                'text',
-                'eventschedulingtype',
-                get_string('eventschedulingtype', 'quizaccess_proview')
-            );
-            $mform->setType('eventschedulingtype', PARAM_TEXT);
-        }
-        $mform->addHelpButton('eventschedulingtype', 'eventschedulingtype', 'quizaccess_proview');
-        $mform->setDefault('eventschedulingtype', 'bulk');
-        $mform->hideIf('eventschedulingtype', 'proctoringtype', 'neq', 'live');
 
         $mform->addElement(
             'editor',
@@ -428,7 +390,6 @@ class quizaccess_proview extends access_rule_base {
             if ($record) {
                 $mform->setDefault('proctoringtype', $record->proctoringtype);
                 $mform->setDefault('proview_token', $record->proview_token ?? '');
-                $mform->setDefault('eventschedulingtype', $record->eventschedulingtype ?? '');
                 $mform->setDefault('proctorinstructions', [
                     'text'   => $record->proctorinstructions ?? '',
                     'format' => FORMAT_HTML,
@@ -464,6 +425,13 @@ class quizaccess_proview extends access_rule_base {
         $files,
         mod_quiz_mod_form $quizform
     ): array {
+        $proctoringactive = (!empty($data['proctoringtype']) && $data['proctoringtype'] !== 'none')
+            || !empty($data['tsbenabled']);
+
+        if ($proctoringactive && empty($data['proview_token'])) {
+            $errors['proview_token'] = get_string('proview_token_required', 'quizaccess_proview');
+        }
+
         return $errors;
     }
 
@@ -501,7 +469,6 @@ class quizaccess_proview extends access_rule_base {
             $record->proctoringenabled           = 1;
             $record->proctoringtype              = $quiz->proctoringtype ?? 'none';
             $record->proview_token               = $quiz->proview_token ?? null;
-            $record->eventschedulingtype         = $quiz->eventschedulingtype ?? null;
             $record->proctorinstructions         = $proctorinstructions;
             $record->candidateinstructions       = $candidateinstructions;
             $record->referencelinks              = $quiz->referencelinks ?? null;
@@ -520,7 +487,6 @@ class quizaccess_proview extends access_rule_base {
             $record->proctoringenabled           = 1;
             $record->proctoringtype              = $quiz->proctoringtype ?? 'none';
             $record->proview_token               = $quiz->proview_token ?? null;
-            $record->eventschedulingtype         = $quiz->eventschedulingtype ?? null;
             $record->proctorinstructions         = $proctorinstructions;
             $record->candidateinstructions       = $candidateinstructions;
             $record->referencelinks              = $quiz->referencelinks ?? null;
@@ -563,7 +529,7 @@ class quizaccess_proview extends access_rule_base {
                 'proctoring_enabled'            => $proctoringenabled,
                 'tsb_enabled'                   => (bool) $record->tsbenabled,
                 'proview_token'                 => (string) ($record->proview_token ?? ''),
-                'scheduling_type'               => (string) ($record->eventschedulingtype ?? ''),
+                'scheduling_type'               => 'bulk',
                 'proctor_instructions'          => $proctorinstructions,
                 'candidate_instructions'        => $candidateinstructions,
                 'reference_links'               => (string) ($record->referencelinks ?? ''),
