@@ -1,23 +1,29 @@
 {{!
-    Template: quizaccess_proview/attempt_recordings
+    @template quizaccess_proview/attempt_recordings
 
     Renders a searchable, scrollable table of Proview recording sessions.
-    The AMD module handles search, the Bootstrap modal, and recording link clicks.
 
-    Context variables:
-      - hasattempts {bool}   Whether any sessions were returned from the API.
-      - attempts    {array}  List of session objects:
-          - index        {int}    Row number (1-based).
-          - lmsuserid    {string} LMS user ID sub-text.
-          - fullname     {string} Attendee display name.
-          - email        {string} Attendee email.
-          - attemptno    {int}    Attempt number.
-          - finalrating  {string} Final rating label (high/medium/low).
-          - ratingclass  {string} Bootstrap badge variant (success/warning/danger/secondary).
-          - hasurl       {bool}   Whether a recording URL exists.
-          - proviewurl   {string} Playback base URL.
-          - sessionuuid  {string} Proview session UUID.
-          - proctortoken {string} Proview token for this session.
+    Example context (json):
+    {
+        "hasattempts": true,
+        "attempts": [
+            {
+                "index": 1,
+                "lmsuserid": "42",
+                "fullname": "Jane Doe",
+                "email": "jane@example.com",
+                "attemptno": 1,
+                "finalrating": "high",
+                "ratingclass": "success",
+                "sessionuuid": "abc-123-def",
+                "proctortoken": "proctor-tok",
+                "proviewurl": "https://appv7.proview.io/embedded/abc-123-def",
+                "hasurl": true,
+                "firstrow": true,
+                "lastrow": true
+            }
+        ]
+    }
 
     @package    quizaccess_proview
     @copyright  2026 Talview Inc.
