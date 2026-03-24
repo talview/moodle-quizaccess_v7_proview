@@ -44,14 +44,22 @@ define(['jquery'], function($) {
         document.getElementById('proview-recording-iframe').src = 'about:blank';
     });
 
+    /**
+     * Initialise the search input to filter recording rows by name or email.
+     */
     function initSearch() {
-        var input   = document.getElementById('proview-recordings-search');
+        var input = document.getElementById('proview-recordings-search');
         var countEl = document.getElementById('proview-recordings-count');
-        var rows    = Array.prototype.slice.call(
+        var rows = Array.prototype.slice.call(
             document.querySelectorAll('#proview-recordings-table .proview-attempt-row')
         );
         var total = rows.length;
 
+        /**
+         * Update the visible-row count label.
+         *
+         * @param {number} visible Number of rows currently visible.
+         */
         function setCount(visible) {
             if (!countEl) {
                 return;
@@ -68,7 +76,7 @@ define(['jquery'], function($) {
         }
 
         input.addEventListener('input', function() {
-            var term    = this.value.trim().toLowerCase();
+            var term = this.value.trim().toLowerCase();
             var visible = 0;
 
             rows.forEach(function(row) {
@@ -85,17 +93,23 @@ define(['jquery'], function($) {
         });
     }
 
+    /**
+     * Attach click handlers to recording links to fetch a playback token and open the modal.
+     *
+     * @param {number} quizid  Moodle quiz ID.
+     * @param {string} sesskey Current Moodle session key.
+     */
     function initLinks(quizid, sesskey) {
         document.querySelectorAll('.proview-recording-link').forEach(function(link) {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
 
-                var proviewurl   = link.dataset.proviewurl;
-                var sessionuuid  = link.dataset.sessionuuid;
+                var proviewurl = link.dataset.proviewurl;
+                var sessionuuid = link.dataset.sessionuuid;
                 var proctortoken = link.dataset.proctortoken;
                 var originalText = link.textContent.trim();
 
-                link.textContent         = '\u2026';
+                link.textContent = '\u2026';
                 link.style.pointerEvents = 'none';
 
                 var endpoint = M.cfg.wwwroot
@@ -106,17 +120,20 @@ define(['jquery'], function($) {
                     + '&sesskey=' + encodeURIComponent(sesskey);
 
                 fetch(endpoint)
-                    .then(function(r) { return r.json(); })
+                    .then(function(r) {
+                        return r.json();
+                    })
                     .then(function(data) {
-                        link.textContent         = originalText;
+                        link.textContent = originalText;
                         link.style.pointerEvents = '';
                         var url = data.token
                             ? proviewurl + '?token=' + encodeURIComponent(data.token)
                             : proviewurl;
                         openModal(url);
+                        return url;
                     })
                     .catch(function() {
-                        link.textContent         = originalText;
+                        link.textContent = originalText;
                         link.style.pointerEvents = '';
                     });
             });
