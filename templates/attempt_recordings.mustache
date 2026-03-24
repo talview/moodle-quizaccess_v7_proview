@@ -1,0 +1,120 @@
+{{!
+    @template quizaccess_proview/attempt_recordings
+
+    Renders a searchable, scrollable table of Proview recording sessions.
+
+    @package    quizaccess_proview
+    @copyright  2026 Talview Inc.
+    @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+
+    Example context (json):
+    {
+        "hasattempts": true,
+        "attempts": [
+            {
+                "index": 1,
+                "lmsuserid": "42",
+                "fullname": "Jane Doe",
+                "email": "jane@example.com",
+                "attemptno": 1,
+                "finalrating": "high",
+                "ratingclass": "success",
+                "sessionuuid": "abc-123-def",
+                "proctortoken": "proctor-tok",
+                "proviewurl": "https://appv7.proview.io/embedded/abc-123-def",
+                "hasurl": true,
+                "firstrow": true,
+                "lastrow": true
+            }
+        ]
+    }
+}}
+<div class="quizaccess-proview-recordings">
+    {{#hasattempts}}
+    <div class="mb-2">
+        <input type="text"
+               id="proview-recordings-search"
+               class="form-control form-control-sm"
+               placeholder="{{#str}}recordings_search_placeholder, quizaccess_proview{{/str}}"
+               autocomplete="off">
+    </div>
+    <div style="max-height:420px; overflow-y:auto;">
+        <table class="table table-sm table-bordered table-hover generaltable mb-0"
+               id="proview-recordings-table">
+            <thead class="thead-light" style="position:sticky; top:0; z-index:1;">
+                <tr>
+                    <th scope="col" style="width:40px">#</th>
+                    <th scope="col">{{#str}}recordings_col_name, quizaccess_proview{{/str}}</th>
+                    <th scope="col">{{#str}}recordings_col_email, quizaccess_proview{{/str}}</th>
+                    <th scope="col" style="width:80px">{{#str}}recordings_col_attempt, quizaccess_proview{{/str}}</th>
+                    <th scope="col" style="width:90px">{{#str}}recordings_col_rating, quizaccess_proview{{/str}}</th>
+                    <th scope="col" style="width:130px">{{#str}}recordings_col_recording, quizaccess_proview{{/str}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#attempts}}
+                <tr class="proview-attempt-row{{#firstrow}} proview-group-first{{/firstrow}}"
+                    style="{{#firstrow}}border-top:2px solid #dee2e6;{{/firstrow}}"
+                    data-name="{{fullname}}"
+                    data-email="{{email}}">
+                    <td class="text-muted small">{{index}}</td>
+                    <td>
+                        {{#firstrow}}
+                            {{#fullname}}<strong>{{fullname}}</strong>{{/fullname}}
+                            {{^fullname}}<span class="text-muted">—</span>{{/fullname}}
+                            {{#lmsuserid}}<div class="text-muted small">#{{lmsuserid}}</div>{{/lmsuserid}}
+                        {{/firstrow}}
+                    </td>
+                    <td class="small">{{#firstrow}}{{#email}}{{email}}{{/email}}{{^email}}—{{/email}}{{/firstrow}}</td>
+                    <td class="text-center">{{attemptno}}</td>
+                    <td class="text-center">
+                        <span class="badge badge-{{ratingclass}}">
+                            {{#finalrating}}{{finalrating}}{{/finalrating}}{{^finalrating}}—{{/finalrating}}
+                        </span>
+                    </td>
+                    <td>
+                        {{#hasurl}}
+                        <a href="#"
+                           class="proview-recording-link"
+                           data-proviewurl="{{proviewurl}}"
+                           data-sessionuuid="{{sessionuuid}}"
+                           data-proctortoken="{{proctortoken}}">
+                            {{#str}}recordings_view_link, quizaccess_proview{{/str}}
+                        </a>
+                        {{/hasurl}}
+                        {{^hasurl}}<span class="text-muted">—</span>{{/hasurl}}
+                    </td>
+                </tr>
+                {{/attempts}}
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-1 text-muted small" id="proview-recordings-count"></div>
+    {{/hasattempts}}
+    {{^hasattempts}}
+    <p class="text-muted mb-0">{{#str}}recordings_no_attempts, quizaccess_proview{{/str}}</p>
+    {{/hasattempts}}
+</div>
+
+{{! Bootstrap modal for recording playback }}
+<div class="modal fade" id="proview-recording-modal" tabindex="-1" role="dialog"
+     aria-labelledby="proview-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="proview-modal-title">
+                    {{#str}}proview_recordings_header, quizaccess_proview{{/str}}
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-0" style="height:78vh;">
+                <iframe id="proview-recording-iframe"
+                        src="about:blank"
+                        style="width:100%; height:100%; border:none;"
+                        allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+</div>

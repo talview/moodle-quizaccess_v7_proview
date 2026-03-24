@@ -201,6 +201,88 @@ class api {
     }
 
     /**
+     * Fetch all Proview recording sessions for a quiz.
+     *
+     * GET /proview/playback?quiz_id={quizid}&course_id={courseid}&limit={limit}&offset={offset}
+     * Headers: app-id (md5 of site URL), Authorization: {proctortoken}
+     *
+     * @param string $bearertoken  LMS Connector bearer token (from token_manager).
+     * @param int    $quizid       Moodle quiz ID.
+     * @param int    $courseid     Moodle course ID.
+     * @param int    $limit        Max records to return (default 100).
+     * @param int    $offset       Pagination offset (default 0).
+     * @return array[] Array of session objects from the API.
+     * @throws \moodle_exception On HTTP error.
+     */
+    public static function get_playback_sessions(
+        string $bearertoken,
+        int $quizid,
+        int $courseid,
+        int $limit = 100,
+        int $offset = 0
+    ): array {
+        global $CFG;
+
+        $url     = static::get_base_url() . '/proview/playback'
+                 . '?quiz_id=' . $quizid
+                 . '&course_id=' . $courseid
+                 . '&limit=' . $limit
+                 . '&offset=' . $offset;
+        $headers = [
+            'Authorization: Bearer ' . $bearertoken,
+        ];
+
+        return static::make_request('GET', $url, $headers, null);
+    }
+
+    /**
+     * Fetch a short-lived playback token for a specific Proview recording session.
+     *
+     * POST /token/playback
+     * Headers: app-id (md5 of site URL), org-id (configured organisation ID)
+     * Body: { session_uuid, proctor_token, validity }
+     *
+     * The returned token is appended as ?token={playback_token} to the
+     * proviewurl before opening the recording link.
+     *
+     * @param string $sessionuuid  Proview session UUID (tail segment of the proviewurl).
+     * @param string $proctortoken Proview token UUID configured for the quiz.
+     * @param int    $validity     Token validity in minutes (default 60).
+     * @return string Playback token string.
+     * @throws \moodle_exception On HTTP error or missing token in response.
+     */
+    public static function get_playback_token(string $sessionuuid, string $proctortoken, int $validity = 60): string {
+        global $CFG;
+
+        $url    = static::get_base_url() . '/token/playback';
+        $parsed = parse_url($CFG->wwwroot);
+        $appid  = md5($parsed['scheme'] . '://' . $parsed['host']);
+
+        $headers = [
+            'app-id: ' . $appid,
+        ];
+
+        $body = [
+            'session_uuid'  => $sessionuuid,
+            'proctor_token' => $proctortoken,
+            'validity'      => $validity,
+        ];
+
+        $response = static::make_request('POST', $url, $headers, $body);
+
+        if (empty($response['token'])) {
+            throw new \moodle_exception(
+                'proview_api_error',
+                'quizaccess_proview',
+                '',
+                'Playback token missing from response'
+            );
+        }
+
+        return (string) $response['token'];
+    }
+
+    /**
      * Execute an HTTP request via Moodle's \curl wrapper.
      *
      * @param string     $method  HTTP method ('GET' or 'POST').
@@ -213,7 +295,6 @@ class api {
     protected static function make_request(string $method, string $url, array $headers, ?array $body): array {
         $curl = new \curl(['ignoresecurity' => false]);
 
-        // Always send/accept JSON.
         $headers[] = 'Content-Type: application/json';
         $headers[] = 'Accept: application/json';
 
