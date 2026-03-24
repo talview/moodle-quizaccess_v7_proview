@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<libraries>
+    <library>
+        <location>vendor/sentry/sentry</location>
+        <name>Sentry PHP SDK</name>
+        <version>4.23.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/guzzlehttp/psr7</location>
+        <name>Guzzle PSR-7</name>
+        <version>2.9.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/http-factory</location>
+        <name>PSR-17 HTTP Factory</name>
+        <version>1.1.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/http-message</location>
+        <name>PSR-7 HTTP Message</name>
+        <version>2.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/log</location>
+        <name>PSR-3 Logger Interface</name>
+        <version>3.0.2</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/jean85/pretty-package-versions</location>
+        <name>Jean85 Pretty Package Versions</name>
+        <version>2.1.1</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/ralouphie/getallheaders</location>
+        <name>getallheaders</name>
+        <version>3.0.3</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/symfony/deprecation-contracts</location>
+        <name>Symfony Deprecation Contracts</name>
+        <version>3.6.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/symfony/options-resolver</location>
+        <name>Symfony Options Resolver</name>
+        <version>8.0.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/composer</location>
+        <name>Composer Autoloader</name>
+        <version>2</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor</location>
+        <name>Composer vendor directory</name>
+        <version>2</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+</libraries>
