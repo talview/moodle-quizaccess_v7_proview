@@ -1,0 +1,208 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — build ZIP but skip GitHub Release creation'
+        required: false
+        default: 'false'
+
+jobs:
+  ci-gate:
+    name: CI (${{ matrix.moodle-branch }}, ${{ matrix.database }})
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_USER: root
+          MYSQL_ALLOW_EMPTY_PASSWORD: true
+          MYSQL_CHARACTER_SET_SERVER: utf8mb4
+          MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - moodle-branch: MOODLE_405_STABLE
+            php: '8.1'
+            database: pgsql
+          - moodle-branch: MOODLE_405_STABLE
+            php: '8.1'
+            database: mariadb
+          - moodle-branch: MOODLE_501_STABLE
+            php: '8.3'
+            database: pgsql
+          - moodle-branch: MOODLE_501_STABLE
+            php: '8.3'
+            database: mariadb
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, xml, zip, gd, intl, soap, pgsql, mysqli
+          coverage: none
+          ini-values: max_input_vars=5000
+
+      - name: Install moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist \
+            moodlehq/moodle-plugin-ci ci ^4
+          echo "$(cd ci && pwd)/bin" >> $GITHUB_PATH
+          echo "$(cd ci && pwd)/vendor/bin" >> $GITHUB_PATH
+
+      - name: Install Moodle (${{ matrix.moodle-branch }}, ${{ matrix.database }})
+        run: moodle-plugin-ci install --plugin ${{ github.workspace }}/plugin --db-type=${{ matrix.database }} --db-host=127.0.0.1
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
+
+      - name: PHP Lint
+        run: moodle-plugin-ci phplint
+
+      - name: PHP Code Sniffer
+        run: moodle-plugin-ci phpcs --max-warnings 0
+
+      - name: PHP Doc checker
+        run: moodle-plugin-ci phpdoc --max-warnings 0
+
+      - name: Validate
+        run: moodle-plugin-ci validate
+
+      - name: Check upgrade savepoints
+        run: moodle-plugin-ci savepoints
+
+      - name: Mustache lint
+        run: moodle-plugin-ci mustache
+
+      - name: Grunt
+        run: moodle-plugin-ci grunt --max-lint-warnings 0
+
+      - name: PHPUnit
+        run: moodle-plugin-ci phpunit
+
+      - name: Behat
+        run: moodle-plugin-ci behat --profile chrome
+
+  build-zip:
+    name: Build plugin ZIP
+    runs-on: ubuntu-latest
+    needs: ci-gate
+    outputs:
+      release_version: ${{ steps.version.outputs.release }}
+      zip_name: ${{ steps.version.outputs.zip_name }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          RELEASE=$(grep -oP "\\\$plugin->release\s+=\s+'\K[^']+" version.php)
+          ZIP_NAME="quizaccess_proview-v${RELEASE}"
+          if echo "$RELEASE" | grep -qE '(alpha|beta|rc)'; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+          fi
+          echo "release=${RELEASE}" >> $GITHUB_OUTPUT
+          echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
+
+      - name: Prepare plugin directory
+        run: |
+          mkdir -p /tmp/build/quizaccess_proview
+          rsync -a --exclude='.git' \
+                   --exclude='.github' \
+                   --exclude='.husky' \
+                   --exclude='.zed' \
+                   --exclude='node_modules' \
+                   --exclude='vendor' \
+                   --exclude='CLAUDE.md' \
+                   --exclude='.gitignore' \
+                   --exclude='.phpcs.xml' \
+                   --exclude='composer.json' \
+                   --exclude='composer.lock' \
+                   --exclude='package.json' \
+                   --exclude='package-lock.json' \
+                   --exclude='phpmd.xml' \
+                   --exclude='phpstan.neon' \
+                   --exclude='phpunit.xml' \
+                   --exclude='tests' \
+                   ./ /tmp/build/quizaccess_proview/
+
+      - name: Create ZIP
+        run: |
+          cd /tmp/build
+          zip -r "${{ steps.version.outputs.zip_name }}.zip" quizaccess_proview/
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.zip_name }}
+          path: /tmp/build/${{ steps.version.outputs.zip_name }}.zip
+          retention-days: 90
+
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-zip
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-zip.outputs.zip_name }}
+          path: /tmp/release
+
+      - name: Create tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ needs.build-zip.outputs.release_version }}" || true
+          git push origin "v${{ needs.build-zip.outputs.release_version }}" || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build-zip.outputs.release_version }}
+          name: quizaccess_proview v${{ needs.build-zip.outputs.release_version }}
+          generate_release_notes: true
+          prerelease: ${{ needs.build-zip.outputs.prerelease }}
+          files: /tmp/release/${{ needs.build-zip.outputs.zip_name }}.zip
