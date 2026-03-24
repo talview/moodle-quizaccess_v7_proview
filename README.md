@@ -1,20 +1,26 @@
-# quizaccess_proview
+# quizaccess_proview — Talview Proview Proctoring
 
-Unified Talview Proview proctoring plugin for Moodle — replaces `quizaccess_proctor` and `local_proview` with a single `quizaccess_` sub-plugin.
+[![CI](https://github.com/talview/moodle-quizaccess_v7_proview/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/talview/moodle-quizaccess_v7_proview/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/talview/moodle-quizaccess_v7_proview)](https://github.com/talview/moodle-quizaccess_v7_proview/releases/latest)
+[![Moodle](https://img.shields.io/badge/Moodle-4.5--5.1-orange)](https://moodle.org)
+[![PHP](https://img.shields.io/badge/PHP-8.1--8.3-blue)](https://www.php.net)
+[![License](https://img.shields.io/badge/License-GPL%20v3-green)](LICENSE)
 
-**Supports:** Moodle 4.5, 5.0, 5.1+
+A Moodle quiz access rule sub-plugin that integrates [Talview Proview](https://www.talview.com) proctoring into any Moodle quiz.
+
+**Supports:** Moodle 4.5 – 5.1+ · PHP 8.1+
 
 ---
 
-## Overview
+## Features
 
-`quizaccess_proview` is a Moodle quiz access rule sub-plugin that integrates Talview Proview proctoring into any Moodle quiz. It handles:
-
-- Per-quiz proctoring configuration (proctoring type, secure browser, allow-/blocklists)
-- Proview session launch via CDN script injection at quiz start
-- Token-based authentication via the Talview LMS Connector API
-- Quiz and enrolment event callbacks to the Talview API
-- GDPR-compliant privacy provider
+- **Per-quiz proctoring configuration** — enable proctoring, choose type, configure candidate and invigilator instructions, allow/blocklists
+- **Three proctoring modes** — AI-based review, record & review, live invigilator
+- **Talview Secure Browser (TSB)** — optional locked-down browser enforcement
+- **Proview CDN script injection** — session initialised automatically on quiz attempt start
+- **Recordings page** — teachers can view and play back all proctored sessions for a quiz
+- **Token-based auth** — Proview session token fetched at runtime via LMS Connector API, never stored
+- **GDPR compliant** — privacy provider included
 
 ---
 
@@ -22,7 +28,7 @@ Unified Talview Proview proctoring plugin for Moodle — replaces `quizaccess_pr
 
 | Requirement | Version |
 |-------------|---------|
-| Moodle | 4.5+ (build 2024042200) |
+| Moodle | 4.5+ (build `2024042200`) |
 | PHP | 8.1+ |
 | Talview LMS Connector | Active subscription + API credentials |
 
@@ -30,70 +36,124 @@ Unified Talview Proview proctoring plugin for Moodle — replaces `quizaccess_pr
 
 ## Installation
 
-1. Download or clone this repository into `<moodleroot>/mod/quiz/accessrule/proview/`.
+### Via Moodle admin UI (recommended)
 
-   ```bash
-   git clone https://github.com/talview/moodle-quizaccess_v7_proview.git mod/quiz/accessrule/proview
-   ```
+1. Download `quizaccess_proview-vX.Y.Z.zip` from the [Releases](../../releases) page.
+2. Go to **Site administration → Plugins → Install plugins**.
+3. Upload the ZIP and follow the on-screen prompts.
 
-2. Log in to Moodle as an administrator and navigate to **Site administration → Notifications** to trigger the database upgrade.
+### Via command line
 
-3. Go to **Site administration → Plugins → Quiz → Proview proctoring** and enter your Talview LMS Connector credentials.
-
-4. In any quiz's **Edit settings** page, scroll to the **Proview proctoring** section to enable and configure proctoring for that quiz.
+```bash
+cd <moodleroot>/mod/quiz/accessrule/
+git clone https://github.com/talview/moodle-quizaccess_v7_proview.git proview
+php admin/cli/upgrade.php
+```
 
 ---
 
-## Admin Configuration
+## Configuration
+
+### Admin settings
+
+Go to **Site administration → Plugins → Quiz access rules → Talview Proview proctoring**.
+
+**Proview connection**
 
 | Setting | Description |
 |---------|-------------|
-| LMS Connector URL | Base URL for the Talview LMS Connector API |
-| Organisation | Organisation selected from your Talview account (auto-populated via API) |
+| CDN URL | URL of the Proview JS script injected into quiz attempt pages |
+| Account name | Talview account name associated with this Moodle site |
+| Admin URL | Base URL of the Proview admin/API service (e.g. `https://appv7.proview.io/embedded`) |
 
-The plugin derives `app_id` automatically from `md5($CFG->wwwroot)` — no manual token input required.
+**Callback authentication**
+
+| Setting | Description |
+|---------|-------------|
+| Admin username | Username provided by Talview to authenticate callback requests |
+| Admin password | Password provided by Talview to authenticate callback requests |
+| Root directory | Moodle root directory path (use `/` for default site root) |
+| Callback URL | URL that Talview will POST proctoring event callbacks to. Leave blank to use the default plugin endpoint |
+
+### Per-quiz settings
+
+In any quiz's **Edit settings** page, expand the **Proview Proctoring** section.
+
+| Setting | Description |
+|---------|-------------|
+| Enable Proview proctoring | Master toggle for this quiz |
+| Proctoring type | `No proctoring`, `Recorded`, `Record and review`, `Live proctoring` |
+| Proview token | Token configuration fetched from LMS Connector |
+| Enable Talview Secure Browser | Launches quiz inside TSB |
+| Candidate instructions | Shown to candidate before session starts |
+| Proctor instructions | Shown to invigilator before session starts |
+| Reference links | Links shown to candidate (markdown format) |
+| Blacklisted Windows/macOS apps | Comma-separated list of blocked applications |
+| Whitelisted Windows/macOS apps | Comma-separated list of allowed applications |
+| Allow minimise | Whether candidate can minimise the browser |
+| Screen capture protection | Blocks screen recording tools during the quiz |
+
+> **Note:** When `Live proctoring` is selected, both quiz open and close times must be set.
 
 ---
 
-## Migration from Legacy Plugins
+## Viewing recordings
 
-This plugin replaces two legacy Talview plugins:
+Teachers and managers can view proctored sessions via the **Proview Recordings** button on the quiz page, or by navigating directly to:
+
+```
+/mod/quiz/accessrule/proview/recordings.php?cmid=<cmid>
+```
+
+---
+
+## Migration from legacy plugins
+
+This plugin replaces:
 
 | Legacy plugin | Status |
 |---------------|--------|
-| `quizaccess_proctor` | **Deprecated** — replaced by `quizaccess_proview` |
-| `local_proview` | **Deprecated** — replaced by `quizaccess_proview` |
+| `quizaccess_proctor` | Deprecated — replaced by `quizaccess_proview` |
+| `local_proview` | Deprecated — replaced by `quizaccess_proview` |
 
-Running the Moodle upgrade with both legacy plugins present will automatically migrate all existing per-quiz proctoring settings to `quizaccess_proview`. After a successful migration, the legacy plugins can be uninstalled.
+Running the Moodle upgrade with legacy plugins present will automatically migrate existing per-quiz settings.
 
 ---
 
 ## Development
 
-### Prerequisites
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, coding standards, and the PR process.
 
-- PHP 8.1+, Composer
-- A local Moodle 4.5 instance
-- [`moodle-plugin-ci`](https://github.com/moodlehq/moodle-plugin-ci) for CI
-
-### Running Tests
+### Running tests
 
 ```bash
 # PHPUnit
-vendor/bin/phpunit --testsuite quizaccess_proview
+vendor/bin/phpunit --group quizaccess_proview
 
-# Behat
-php admin/tool/behat/cli/run.php --tags=@quizaccess_proview
+# Single file
+vendor/bin/phpunit mod/quiz/accessrule/proview/tests/api_test.php
 ```
 
 ### CI
 
-GitHub Actions runs the full `moodle-plugin-ci` matrix against Moodle 4.5, 5.0, and 5.1 on every pull request to `develop`.
+GitHub Actions runs the full `moodle-plugin-ci` matrix against Moodle 4.5 and 5.1 on every PR to `develop`. Releases are created automatically on merge to `master`.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Security
+
+To report a security vulnerability, see [SECURITY.md](SECURITY.md).
 
 ---
 
 ## License
 
-This plugin is licensed under the [GNU GPL v3 or later](https://www.gnu.org/copyleft/gpl.html).
+GNU General Public License v3 or later — see [LICENSE](LICENSE).
 
-Copyright 2026 Talview Inc.
+Copyright 2026 [Talview Inc.](https://www.talview.com)
