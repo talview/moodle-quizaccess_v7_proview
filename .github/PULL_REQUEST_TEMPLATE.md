@@ -1,8 +1,8 @@
 ## Summary
 
-<!-- What does this PR do? Link the Linear issue. -->
+<!-- What does this PR do? Link the GitHub issue. -->
 
-Closes: ATX-XXXX
+Closes: #
 
 ## Changes
 
