@@ -75,6 +75,10 @@ jobs:
           echo "$(cd ci && pwd)/bin" >> $GITHUB_PATH
           echo "$(cd ci && pwd)/vendor/bin" >> $GITHUB_PATH
 
+      - name: Install runtime dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+        working-directory: ${{ github.workspace }}/plugin
+
       - name: Install Moodle (${{ matrix.moodle-branch }}, ${{ matrix.database }})
         run: moodle-plugin-ci install --plugin ${{ github.workspace }}/plugin --db-type=${{ matrix.database }} --db-host=127.0.0.1
         env:
