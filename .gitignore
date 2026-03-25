@@ -4,7 +4,6 @@ config-dist.php
 
 # Composer
 vendor/
-composer.lock
 
 # Node / AMD build artefacts
 node_modules/
