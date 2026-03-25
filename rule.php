@@ -737,6 +737,15 @@ class quizaccess_proview extends access_rule_base {
             $inframe = optional_param('proview_iframe', 0, PARAM_INT);
             if ($inframe) {
                 $page->set_pagelayout('secure');
+                $page->requires->js_amd_inline('
+                    require(["jquery"], function($) {
+                        $(document).ready(function() {
+                            $(".pagelayout-secure").find(
+                                "#region-main > div > div.container-fluid.tertiary-navigation > div > div > a"
+                            ).css("display", "none");
+                        });
+                    });
+                ');
                 return;
             }
 
@@ -744,6 +753,15 @@ class quizaccess_proview extends access_rule_base {
         }
 
         $page->set_pagelayout('secure');
+        $page->requires->js_amd_inline('
+            require(["jquery"], function($) {
+                $(document).ready(function() {
+                    $(".pagelayout-secure").find(
+                        "#region-main > div > div.container-fluid.tertiary-navigation > div > div > a"
+                    ).css("display", "none");
+                });
+            });
+        ');
 
         $jsfameurl = json_encode($frameurl);
         $page->requires->js_amd_inline('
