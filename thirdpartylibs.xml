@@ -3,63 +3,154 @@
     <library>
         <location>vendor/sentry/sentry</location>
         <name>Sentry PHP SDK</name>
-        <version>4.23.0</version>
+        <version>3.x</version>
         <license>MIT</license>
         <licenseversion></licenseversion>
     </library>
     <library>
-        <location>vendor/guzzlehttp/psr7</location>
-        <name>Guzzle PSR-7</name>
-        <version>2.9.0</version>
-        <license>MIT</license>
-        <licenseversion></licenseversion>
-    </library>
-    <library>
-        <location>vendor/psr/http-factory</location>
-        <name>PSR-17 HTTP Factory</name>
-        <version>1.1.0</version>
-        <license>MIT</license>
-        <licenseversion></licenseversion>
-    </library>
-    <library>
-        <location>vendor/psr/http-message</location>
-        <name>PSR-7 HTTP Message</name>
-        <version>2.0</version>
-        <license>MIT</license>
-        <licenseversion></licenseversion>
-    </library>
-    <library>
-        <location>vendor/psr/log</location>
-        <name>PSR-3 Logger Interface</name>
-        <version>3.0.2</version>
+        <location>vendor/guzzlehttp/promises</location>
+        <name>Guzzle Promises</name>
+        <version>2.x</version>
         <license>MIT</license>
         <licenseversion></licenseversion>
     </library>
     <library>
         <location>vendor/jean85/pretty-package-versions</location>
         <name>Jean85 Pretty Package Versions</name>
-        <version>2.1.1</version>
+        <version>2.x</version>
         <license>MIT</license>
         <licenseversion></licenseversion>
     </library>
     <library>
-        <location>vendor/ralouphie/getallheaders</location>
-        <name>getallheaders</name>
-        <version>3.0.3</version>
+        <location>vendor/nyholm/psr7</location>
+        <name>Nyholm PSR-7</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/php-http/client-common</location>
+        <name>PHP-HTTP Client Common</name>
+        <version>2.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/php-http/discovery</location>
+        <name>PHP-HTTP Discovery</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/php-http/httplug</location>
+        <name>PHP-HTTP HTTPlug</name>
+        <version>2.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/php-http/message</location>
+        <name>PHP-HTTP Message</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/php-http/message-factory</location>
+        <name>PHP-HTTP Message Factory</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/php-http/promise</location>
+        <name>PHP-HTTP Promise</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/container</location>
+        <name>PSR-11 Container Interface</name>
+        <version>2.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/http-client</location>
+        <name>PSR-18 HTTP Client</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/http-factory</location>
+        <name>PSR-17 HTTP Factory</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/http-message</location>
+        <name>PSR-7 HTTP Message</name>
+        <version>2.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/psr/log</location>
+        <name>PSR-3 Logger Interface</name>
+        <version>3.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/clue/stream-filter</location>
+        <name>Clue Stream Filter</name>
+        <version>1.x</version>
         <license>MIT</license>
         <licenseversion></licenseversion>
     </library>
     <library>
         <location>vendor/symfony/deprecation-contracts</location>
         <name>Symfony Deprecation Contracts</name>
-        <version>3.6.0</version>
+        <version>3.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/symfony/http-client</location>
+        <name>Symfony HTTP Client</name>
+        <version>7.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/symfony/http-client-contracts</location>
+        <name>Symfony HTTP Client Contracts</name>
+        <version>3.x</version>
         <license>MIT</license>
         <licenseversion></licenseversion>
     </library>
     <library>
         <location>vendor/symfony/options-resolver</location>
         <name>Symfony Options Resolver</name>
-        <version>8.0.0</version>
+        <version>7.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/symfony/polyfill-php80</location>
+        <name>Symfony Polyfill PHP 8.0</name>
+        <version>1.x</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/symfony/service-contracts</location>
+        <name>Symfony Service Contracts</name>
+        <version>3.x</version>
         <license>MIT</license>
         <licenseversion></licenseversion>
     </library>
