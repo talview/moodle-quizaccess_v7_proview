@@ -232,7 +232,21 @@ class api {
             'Authorization: Bearer ' . $bearertoken,
         ];
 
-        return static::make_request('GET', $url, $headers, null);
+        $maxattempts = 3;
+        $lasterror   = null;
+        for ($attempt = 1; $attempt <= $maxattempts; $attempt++) {
+            try {
+                return static::make_request('GET', $url, $headers, null);
+            } catch (\moodle_exception $e) {
+                $lasterror = $e;
+                debugging(
+                    '[quizaccess_proview] get_playback_sessions attempt ' . $attempt . '/' . $maxattempts
+                    . ' failed: ' . $e->getMessage(),
+                    DEBUG_DEVELOPER
+                );
+            }
+        }
+        throw $lasterror;
     }
 
     /**
