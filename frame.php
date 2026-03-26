@@ -118,6 +118,7 @@ $jscmid               = json_encode((int) $cmid);
 $jssesskey            = json_encode(sesskey());
 $jsajaxurl            = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/startattempt_ajax.php');
 $jsisnewattempt       = $isnewattempt ? 'true' : 'false';
+$jsurlwithflag        = json_encode($urlwithflag);
 $showpasswordnotice   = !empty($quiz->password);
 
 echo $OUTPUT->header();
@@ -163,6 +164,14 @@ echo <<<HTML
 <iframe id="proview-quiz-frame" src="{$iframesrc}"
         style="width:100vw;height:100vh;border:none;display:none"></iframe>
 <script>
+
+if (window.self !== window.top) {
+    var _iframeSrc = {$jsurlwithflag};
+    if (_iframeSrc) {
+        window.location.replace(_iframeSrc);
+    }
+}
+
 function startProview() {
     var notice = document.getElementById('proview-password-overlay');
     if (notice) { notice.style.display = 'none'; }
