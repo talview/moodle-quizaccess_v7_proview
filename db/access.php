@@ -28,6 +28,6 @@ $capabilities = [
     'quizaccess/proview:manage' => [
         'captype'      => 'write',
         'contextlevel' => CONTEXT_MODULE,
-        'archetypes' => array()
+        'archetypes' => [],
     ],
 ];
