@@ -591,10 +591,9 @@ class quizaccess_proview extends access_rule_base {
                     ['quizid' => (int) $this->proviewconfig->quizid, 'cmid' => (int) $cm->id, 'sesskey' => sesskey()]
                 ));
             }
-            return ($tsb && !$intbs);
         }
 
-        return false;
+        return ($tsb && !$intbs);
     }
 
     /**
