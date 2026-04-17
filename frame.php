@@ -194,6 +194,7 @@ function startProview() {
         referenceLinks:        {$jsreferencelinks},
         clear:                 false,
         skipHardwareTest:      false,
+        enforceTSB:            true,
         previewStyle:          'position: fixed; bottom: 0px;',
         initCallback:          function(err, sessionUuid) {
             if (err) { return; }
