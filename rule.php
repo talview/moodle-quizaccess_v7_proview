@@ -749,6 +749,18 @@ class quizaccess_proview extends access_rule_base {
                 return;
             }
 
+            $tsb   = !empty($config->tsbenabled);
+            $intbs = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
+
+            if ($tsb && !$intbs) {
+                $redirecturl = $this->quizobj->view_url()->out(false);
+                $tsblink     = 'https://pages.talview.com/securebrowser/index.html'
+                             . '?redirect_url=' . urlencode($redirecturl)
+                             . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
+                $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$tsblink]);
+                return;
+            }
+
             redirect(new \moodle_url($frameurl));
         }
 
