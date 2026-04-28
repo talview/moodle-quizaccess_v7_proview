@@ -24,6 +24,11 @@
 
 namespace quizaccess_proview;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+require_once($CFG->libdir . '/filelib.php');
+
 /**
  * Static HTTP client for the Talview LMS Connector service.
  *
