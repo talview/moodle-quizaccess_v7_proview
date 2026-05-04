@@ -188,8 +188,8 @@ if ($fetcherror !== null) {
         'hasattempts' => !empty($attempts),
         'hasnext'     => $hasnext,
         'hasprev'     => $hasprev,
-        'nexturl'     => (string) $nexturl,
-        'prevurl'     => (string) $prevurl,
+        'nexturl'     => $nexturl ? $nexturl->out(false) : '',
+        'prevurl'     => $prevurl ? $prevurl->out(false) : '',
     ]);
 }
 
