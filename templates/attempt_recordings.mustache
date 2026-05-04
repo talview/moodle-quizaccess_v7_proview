@@ -89,7 +89,21 @@
             </tbody>
         </table>
     </div>
-    <div class="mt-1 text-muted small" id="proview-recordings-count"></div>
+    <div class="mt-1 d-flex justify-content-between align-items-center">
+        <div class="text-muted small" id="proview-recordings-count"></div>
+        <div class="proview-pagination">
+            {{#hasprev}}
+            <a href="{{prevurl}}" class="btn btn-outline-secondary btn-sm">
+                {{#str}}previous, quizaccess_proview{{/str}}
+            </a>
+            {{/hasprev}}
+            {{#hasnext}}
+            <a href="{{nexturl}}" class="btn btn-outline-secondary btn-sm">
+                {{#str}}next, quizaccess_proview{{/str}}
+            </a>
+            {{/hasnext}}
+        </div>
+    </div>
     {{/hasattempts}}
     {{^hasattempts}}
     <p class="text-muted mb-0">{{#str}}recordings_no_attempts, quizaccess_proview{{/str}}</p>
