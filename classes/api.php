@@ -352,13 +352,11 @@ class api {
 
             $info       = $curl->get_info();
             $httpstatus = (int) ($info['http_code'] ?? 0);
-
-            global $PAGE;
-            if (!empty($PAGE) && !CLI_SCRIPT) {
-                $label   = json_encode('[quizaccess_proview] ' . $method . ' ' . $url . ' HTTP ' . $httpstatus);
-                $payload = json_encode(json_decode($raw, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                $PAGE->requires->js_init_code('console.log(' . $label . ', ' . $payload . ');');
-            }
+            $endpointpath = (string) (parse_url($url, PHP_URL_PATH) ?? '/');
+            debugging(
+                '[quizaccess_proview] API request ' . $method . ' ' . $endpointpath . ' HTTP ' . $httpstatus,
+                DEBUG_DEVELOPER
+            );
 
             if ($httpstatus < 200 || $httpstatus >= 300) {
                 $e = new \moodle_exception(

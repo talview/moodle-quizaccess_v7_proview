@@ -9,6 +9,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Security: removed browser console injection of LMS Connector API response payloads from `api::make_request()` to prevent sensitive data exposure in rendered JS/HTML.
+
 ---
 
 ## [0.1.2] — 2026-03-25
