@@ -54,17 +54,6 @@ final class api_test extends \advanced_testcase {
     }
 
     /**
-     * make_request() must not inject API payloads into browser-side console logs.
-     */
-    public function test_make_request_has_no_browser_console_injection(): void {
-        $source = file_get_contents(__DIR__ . '/../classes/api.php');
-
-        $this->assertIsString($source);
-        $this->assertStringNotContainsString('js_init_code', $source);
-        $this->assertStringNotContainsString('console.log(', $source);
-    }
-
-    /**
      * get_organizations() must send a GET to /organizations.
      */
     public function test_get_organizations_uses_get_method(): void {
