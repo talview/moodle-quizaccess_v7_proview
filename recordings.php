@@ -31,6 +31,8 @@ require_once(__DIR__ . '/../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 $cmid = required_param('cmid', PARAM_INT);
+$limit  = optional_param('limit', 100, PARAM_INT);
+$offset = optional_param('offset', 0, PARAM_INT);
 
 $cm      = get_coursemodule_from_id('quiz', $cmid, 0, false, MUST_EXIST);
 $course  = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
@@ -40,7 +42,11 @@ $context = context_module::instance($cm->id);
 require_login($course, false, $cm);
 require_capability('quizaccess/proview:manage', $context);
 
-$PAGE->set_url('/mod/quiz/accessrule/proview/recordings.php', ['cmid' => $cmid]);
+$PAGE->set_url('/mod/quiz/accessrule/proview/recordings.php', [
+    'cmid'   => $cmid,
+    'limit'  => $limit,
+    'offset' => $offset,
+]);
 $PAGE->set_context($context);
 $PAGE->set_title(get_string('proview_recordings_header', 'quizaccess_proview') . ': ' . format_string($quiz->name));
 $PAGE->set_heading(format_string($course->fullname));
@@ -66,7 +72,9 @@ try {
     $sessions = \quizaccess_proview\api::get_playback_sessions(
         $bearer,
         (int) $quiz->id,
-        (int) $quiz->course
+        (int) $quiz->course,
+        $limit,
+        $offset
     );
 } catch (\moodle_exception $e) {
     $fetcherror = $e->getMessage();
@@ -123,7 +131,7 @@ foreach ($sessions as $session) {
 }
 
 $attempts = [];
-$rowindex = 1;
+$rowindex = $offset + 1;
 foreach ($flat as $rows) {
     usort($rows, function ($a, $b) {
         return $a['attemptno'] - $b['attemptno'];
@@ -135,6 +143,27 @@ foreach ($flat as $rows) {
         $row['lastrow']  = ($k === $count - 1);
         $attempts[]      = $row;
     }
+}
+
+$hasnext = count($sessions) >= $limit;
+$hasprev = $offset > 0;
+
+$nexturl = '';
+if ($hasnext) {
+    $nexturl = new moodle_url('/mod/quiz/accessrule/proview/recordings.php', [
+        'cmid'   => $cmid,
+        'limit'  => $limit,
+        'offset' => $offset + $limit,
+    ]);
+}
+
+$prevurl = '';
+if ($hasprev) {
+    $prevurl = new moodle_url('/mod/quiz/accessrule/proview/recordings.php', [
+        'cmid'   => $cmid,
+        'limit'  => $limit,
+        'offset' => max(0, $offset - $limit),
+    ]);
 }
 
 $PAGE->requires->js_call_amd(
@@ -157,6 +186,10 @@ if ($fetcherror !== null) {
     echo $OUTPUT->render_from_template('quizaccess_proview/attempt_recordings', [
         'attempts'    => $attempts,
         'hasattempts' => !empty($attempts),
+        'hasnext'     => $hasnext,
+        'hasprev'     => $hasprev,
+        'nexturl'     => $nexturl ? $nexturl->out(false) : '',
+        'prevurl'     => $prevurl ? $prevurl->out(false) : '',
     ]);
 }
 
