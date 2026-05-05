@@ -31,7 +31,7 @@ require_once(__DIR__ . '/../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 $cmid = required_param('cmid', PARAM_INT);
-$limit  = optional_param('limit', 2, PARAM_INT);
+$limit  = optional_param('limit', 100, PARAM_INT);
 $offset = optional_param('offset', 0, PARAM_INT);
 
 $cm      = get_coursemodule_from_id('quiz', $cmid, 0, false, MUST_EXIST);
