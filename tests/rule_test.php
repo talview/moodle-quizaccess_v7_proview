@@ -53,6 +53,7 @@ final class rule_test extends \advanced_testcase {
             'candidateinstructions'       => '',
             'referencelinks'              => null,
             'tsbenabled'                  => 0,
+            'allowpasswordinjection'      => 0,
             'blacklistedwindowssoftwares' => null,
             'blacklistedmacsoftwares'     => null,
             'whitelistedwindowssoftwares' => null,
@@ -233,6 +234,20 @@ final class rule_test extends \advanced_testcase {
     }
 
     /**
+     * save_settings() must persist allowpasswordinjection correctly when set to 1.
+     */
+    public function test_save_settings_persists_allowpasswordinjection_true(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $quiz = $this->make_quiz(['id' => 470, 'allowpasswordinjection' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => 470]);
+        $this->assertSame('1', (string) $record->allowpasswordinjection);
+    }
+
+    /**
      * save_settings() must extract HTML text from an editor array for candidateinstructions.
      */
     public function test_save_settings_extracts_editor_array_for_candidate_instructions(): void {
@@ -384,6 +399,27 @@ final class rule_test extends \advanced_testcase {
         $result = \quizaccess_proview::make($quizobj, time(), false);
 
         $this->assertInstanceOf(\quizaccess_proview::class, $result);
+    }
+
+    /**
+     * make() must not set passwordcheckedquizzes session state.
+     */
+    public function test_make_does_not_set_passwordchecked_session_state(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        unset($SESSION->passwordcheckedquizzes);
+
+        $quizid = 701;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertFalse(isset($SESSION->passwordcheckedquizzes[$quizid]));
     }
 
     /**

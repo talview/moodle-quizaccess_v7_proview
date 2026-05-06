@@ -86,5 +86,25 @@ function xmldb_quizaccess_proview_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026032500, 'quizaccess', 'proview');
     }
 
+    if ($oldversion < 2026050601) {
+        $table = new xmldb_table('quizaccess_proview');
+        $field = new xmldb_field(
+            'allowpasswordinjection',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'tsbenabled'
+        );
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026050601, 'quizaccess', 'proview');
+    }
+
     return true;
 }

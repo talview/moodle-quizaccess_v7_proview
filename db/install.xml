@@ -11,6 +11,7 @@
         <FIELD NAME="proctoringenabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="proctoringtype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false" COMMENT="none, ai, record_review, live"/>
         <FIELD NAME="tsbenabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Talview Secure Browser enabled"/>
+        <FIELD NAME="allowpasswordinjection" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Allow password session injection after Moodle access checks"/>
         <FIELD NAME="candidateinstructions" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Instructions shown to candidate before quiz"/>
         <FIELD NAME="blacklistedwindowssoftwares" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Comma-separated blacklisted Windows applications"/>
         <FIELD NAME="blacklistedmacsoftwares" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Comma-separated blacklisted macOS applications"/>
