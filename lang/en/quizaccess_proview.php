@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['ai_proctor'] = 'Recorded';
+$string['allowpasswordinjection'] = 'Allow password injection';
 $string['blacklistedmacsoftwares'] = 'Blacklisted macOS applications';
 $string['blacklistedwindowssoftwares'] = 'Blacklisted Windows applications';
 $string['candidateinstructions'] = 'Candidate instructions';

@@ -32,7 +32,6 @@
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
-require_login();
 require_sesskey();
 
 $quizid = required_param('quizid', PARAM_INT);
@@ -43,16 +42,21 @@ global $DB, $USER, $PAGE, $OUTPUT, $CFG, $SESSION;
 $config = $DB->get_record('quizaccess_proview', ['quizid' => $quizid], '*', MUST_EXIST);
 $quiz   = $DB->get_record('quiz', ['id' => $quizid], '*', MUST_EXIST);
 $cm     = get_coursemodule_from_instance('quiz', $quizid, $quiz->course, false, MUST_EXIST);
-
-if (!empty($quiz->password)) {
-    if (!isset($SESSION->passwordcheckedquizzes)) {
-        $SESSION->passwordcheckedquizzes = [];
-    }
-    $SESSION->passwordcheckedquizzes[$quizid] = true;
-}
+$course = get_course($cm->course);
+require_login($course, false, $cm);
 
 if (!$cmid) {
     $cmid = $cm->id;
+}
+
+$quizobj = \mod_quiz\quiz_settings::create($cm->instance, $USER->id);
+$attempts = quiz_get_user_attempts($quizobj->get_quizid(), $USER->id, 'all', true);
+$lastattempt = end($attempts) ?: false;
+
+$accessmanager = $quizobj->get_access_manager(time());
+$messages = $accessmanager->prevent_access();
+if ($messages) {
+    redirect(new moodle_url('/mod/quiz/view.php', ['id' => $cmid]), reset($messages));
 }
 
 $inprogress = $DB->get_record_select(
@@ -60,6 +64,20 @@ $inprogress = $DB->get_record_select(
     "quiz = :quiz AND userid = :userid AND state IN ('inprogress', 'overdue')",
     ['quiz' => $quizid, 'userid' => $USER->id]
 );
+
+if (!$inprogress) {
+    $preventnew = $accessmanager->prevent_new_attempt(count($attempts), $lastattempt);
+    if ($preventnew) {
+        redirect(new moodle_url('/mod/quiz/view.php', ['id' => $cmid]), $preventnew);
+    }
+}
+
+if (!empty($config->allowpasswordinjection) && !empty($quiz->password)) {
+    if (!isset($SESSION->passwordcheckedquizzes)) {
+        $SESSION->passwordcheckedquizzes = [];
+    }
+    $SESSION->passwordcheckedquizzes[$quizid] = true;
+}
 
 if ($inprogress) {
     $isnewattempt = false;
