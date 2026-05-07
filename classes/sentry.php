@@ -50,6 +50,10 @@ class sentry {
             return;
         }
 
+        if (empty(get_config('quizaccess_proview', 'enable_sentry'))) {
+            return;
+        }
+
         $autoloader = __DIR__ . '/../vendor/autoload.php';
         if (!file_exists($autoloader)) {
             return;
@@ -133,5 +137,15 @@ class sentry {
      */
     public static function is_active(): bool {
         return self::$initialized;
+    }
+
+    /**
+     * Reset init state for PHPUnit tests.
+     */
+    public static function reset_for_testing(): void {
+        if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
+            return;
+        }
+        self::$initialized = false;
     }
 }

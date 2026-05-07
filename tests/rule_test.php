@@ -458,6 +458,74 @@ final class rule_test extends \advanced_testcase {
         $this->assertInstanceOf(\quizaccess_proview::class, $result);
     }
 
+    /**
+     * make() must not initialise Sentry when the quiz is not Proview-enabled.
+     */
+    public function test_make_does_not_initialise_sentry_for_non_proview_quiz(): void {
+        $this->resetAfterTest();
+        set_config('enable_sentry', 1, 'quizaccess_proview');
+        \quizaccess_proview\sentry::reset_for_testing();
+
+        $quizid = 73;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertNull($result);
+        $this->assertFalse(\quizaccess_proview\sentry::is_active());
+    }
+
+    /**
+     * make() must not initialise Sentry when telemetry is disabled, even for Proview-enabled quizzes.
+     */
+    public function test_make_does_not_initialise_sentry_when_setting_disabled(): void {
+        $this->resetAfterTest();
+        set_config('enable_sentry', 0, 'quizaccess_proview');
+        \quizaccess_proview\sentry::reset_for_testing();
+
+        $quizid = 74;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertInstanceOf(\quizaccess_proview::class, $result);
+        $this->assertFalse(\quizaccess_proview\sentry::is_active());
+    }
+
+    /**
+     * make() should initialise Sentry when telemetry is enabled for a Proview-enabled quiz.
+     */
+    public function test_make_initialises_sentry_when_setting_enabled_and_quiz_enabled(): void {
+        $this->resetAfterTest();
+        set_config('enable_sentry', 1, 'quizaccess_proview');
+        \quizaccess_proview\sentry::reset_for_testing();
+
+        $autoloader = __DIR__ . '/../vendor/autoload.php';
+        if (!file_exists($autoloader)) {
+            $this->markTestSkipped('Sentry vendor autoloader not available in this test environment.');
+        }
+
+        $quizid = 75;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        $result = \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertInstanceOf(\quizaccess_proview::class, $result);
+        $this->assertTrue(\quizaccess_proview\sentry::is_active());
+    }
+
     // Tests for save_settings: additional field coverage.
 
     /**

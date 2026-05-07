@@ -104,4 +104,12 @@ if ($hassiteconfig) {
         '',
         PARAM_URL
     ));
+
+    // Telemetry settings.
+    $settings->add(new admin_setting_configcheckbox(
+        'quizaccess_proview/enable_sentry',
+        get_string('enable_sentry', 'quizaccess_proview'),
+        get_string('enable_sentry_desc', 'quizaccess_proview'),
+        0
+    ));
 }
