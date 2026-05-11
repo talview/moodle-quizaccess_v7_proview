@@ -35,10 +35,8 @@ if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
     class admin_setting_configtext_proview_cdn_url extends admin_setting_configtext {
         /** @var string[] Trusted Proview CDN script hosts. */
         private const TRUSTED_CDN_HOSTS = [
-        'appv7.proview.io',
+        'cdn-proview.talview.nz',
         'cdn.proview.io',
-        'static.proview.io',
-        'pages.talview.com',
         ];
 
         /**
