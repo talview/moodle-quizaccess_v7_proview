@@ -31,8 +31,11 @@
 
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
+    $hassiteconfig = false;
+    require_once(__DIR__ . '/settings.php');
+}
 
-require_login();
 require_sesskey();
 
 $quizid = required_param('quizid', PARAM_INT);
@@ -43,16 +46,21 @@ global $DB, $USER, $PAGE, $OUTPUT, $CFG, $SESSION;
 $config = $DB->get_record('quizaccess_proview', ['quizid' => $quizid], '*', MUST_EXIST);
 $quiz   = $DB->get_record('quiz', ['id' => $quizid], '*', MUST_EXIST);
 $cm     = get_coursemodule_from_instance('quiz', $quizid, $quiz->course, false, MUST_EXIST);
-
-if (!empty($quiz->password)) {
-    if (!isset($SESSION->passwordcheckedquizzes)) {
-        $SESSION->passwordcheckedquizzes = [];
-    }
-    $SESSION->passwordcheckedquizzes[$quizid] = true;
-}
+$course = get_course($cm->course);
+require_login($course, false, $cm);
 
 if (!$cmid) {
     $cmid = $cm->id;
+}
+
+$quizobj = \mod_quiz\quiz_settings::create($cm->instance, $USER->id);
+$attempts = quiz_get_user_attempts($quizobj->get_quizid(), $USER->id, 'all', true);
+$lastattempt = end($attempts) ?: false;
+
+$accessmanager = $quizobj->get_access_manager(time());
+$messages = $accessmanager->prevent_access();
+if ($messages) {
+    redirect(new moodle_url('/mod/quiz/view.php', ['id' => $cmid]), reset($messages));
 }
 
 $inprogress = $DB->get_record_select(
@@ -60,6 +68,20 @@ $inprogress = $DB->get_record_select(
     "quiz = :quiz AND userid = :userid AND state IN ('inprogress', 'overdue')",
     ['quiz' => $quizid, 'userid' => $USER->id]
 );
+
+if (!$inprogress) {
+    $preventnew = $accessmanager->prevent_new_attempt(count($attempts), $lastattempt);
+    if ($preventnew) {
+        redirect(new moodle_url('/mod/quiz/view.php', ['id' => $cmid]), $preventnew);
+    }
+}
+
+if (!empty($config->allowpasswordinjection) && !empty($quiz->password)) {
+    if (!isset($SESSION->passwordcheckedquizzes)) {
+        $SESSION->passwordcheckedquizzes = [];
+    }
+    $SESSION->passwordcheckedquizzes[$quizid] = true;
+}
 
 if ($inprogress) {
     $isnewattempt = false;
@@ -86,7 +108,10 @@ $sessiontypemap = [
 ];
 $sessiontype = $sessiontypemap[$config->proctoringtype] ?? 'ai_proctor';
 
-$cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
+$trustedcdnhosts = \admin_setting_configtext_proview_cdn_url::get_trusted_hosts();
+
+$cdnurl = trim((string) get_config('quizaccess_proview', 'proview_cdn_url'));
+$cdnvalidationerror = !\admin_setting_configtext_proview_cdn_url::is_valid_cdn_url($cdnurl);
 
 $reflinksraw = (string) ($config->referencelinks ?? '');
 $reflinks    = [];
@@ -122,6 +147,15 @@ $jsurlwithflag        = json_encode($urlwithflag);
 $showpasswordnotice   = !empty($quiz->password);
 
 echo $OUTPUT->header();
+
+if ($cdnvalidationerror) {
+    echo $OUTPUT->notification(
+        get_string('proview_cdn_runtime_error', 'quizaccess_proview', implode(', ', $trustedcdnhosts)),
+        \core\output\notification::NOTIFY_ERROR
+    );
+    echo $OUTPUT->footer();
+    return;
+}
 
 $iframesrc = s($urlwithflag);
 $passwordnoticehtml = $showpasswordnotice ? '

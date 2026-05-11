@@ -207,9 +207,7 @@ class quizaccess_proview extends access_rule_base {
      * @return self|null the rule, if applicable, else null.
      */
     public static function make(quiz_settings $quizobj, $timenow, $canignoretimelimits) {
-        global $DB, $SESSION;
-
-        \quizaccess_proview\sentry::init();
+        global $DB;
 
         $record = $DB->get_record('quizaccess_proview', ['quizid' => $quizobj->get_quizid()]);
 
@@ -217,15 +215,7 @@ class quizaccess_proview extends access_rule_base {
             return null;
         }
 
-        if ($record->proctoringtype !== 'none' || !empty($record->tsbenabled)) {
-            $quiz = $quizobj->get_quiz();
-            if (!empty($quiz->password)) {
-                if (!isset($SESSION->passwordcheckedquizzes)) {
-                    $SESSION->passwordcheckedquizzes = [];
-                }
-                $SESSION->passwordcheckedquizzes[$quiz->id] = true;
-            }
-        }
+        \quizaccess_proview\sentry::init();
 
         $instance = new self($quizobj, $timenow);
         $instance->proviewconfig = $record;
@@ -333,6 +323,13 @@ class quizaccess_proview extends access_rule_base {
         $mform->setDefault('tsbenabled', 0);
 
         $mform->addElement(
+            'advcheckbox',
+            'allowpasswordinjection',
+            get_string('allowpasswordinjection', 'quizaccess_proview')
+        );
+        $mform->setDefault('allowpasswordinjection', 0);
+
+        $mform->addElement(
             'textarea',
             'blacklistedwindowssoftwares',
             get_string('blacklistedwindowssoftwares', 'quizaccess_proview'),
@@ -402,6 +399,7 @@ class quizaccess_proview extends access_rule_base {
                 ]);
                 $mform->setDefault('referencelinks', $record->referencelinks ?? '');
                 $mform->setDefault('tsbenabled', $record->tsbenabled);
+                $mform->setDefault('allowpasswordinjection', $record->allowpasswordinjection ?? 0);
                 $mform->setDefault('blacklistedwindowssoftwares', $record->blacklistedwindowssoftwares ?? '');
                 $mform->setDefault('blacklistedmacsoftwares', $record->blacklistedmacsoftwares ?? '');
                 $mform->setDefault('whitelistedwindowssoftwares', $record->whitelistedwindowssoftwares ?? '');
@@ -484,6 +482,7 @@ class quizaccess_proview extends access_rule_base {
             $record->candidateinstructions       = $candidateinstructions;
             $record->referencelinks              = $quiz->referencelinks ?? null;
             $record->tsbenabled                  = (int) !empty($quiz->tsbenabled);
+            $record->allowpasswordinjection      = (int) !empty($quiz->allowpasswordinjection);
             $record->blacklistedwindowssoftwares = $quiz->blacklistedwindowssoftwares ?? null;
             $record->blacklistedmacsoftwares     = $quiz->blacklistedmacsoftwares ?? null;
             $record->whitelistedwindowssoftwares = $quiz->whitelistedwindowssoftwares ?? null;
@@ -502,6 +501,7 @@ class quizaccess_proview extends access_rule_base {
             $record->candidateinstructions       = $candidateinstructions;
             $record->referencelinks              = $quiz->referencelinks ?? null;
             $record->tsbenabled                  = (int) !empty($quiz->tsbenabled);
+            $record->allowpasswordinjection      = (int) !empty($quiz->allowpasswordinjection);
             $record->blacklistedwindowssoftwares = $quiz->blacklistedwindowssoftwares ?? null;
             $record->blacklistedmacsoftwares     = $quiz->blacklistedmacsoftwares ?? null;
             $record->whitelistedwindowssoftwares = $quiz->whitelistedwindowssoftwares ?? null;

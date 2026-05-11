@@ -53,6 +53,7 @@ final class rule_test extends \advanced_testcase {
             'candidateinstructions'       => '',
             'referencelinks'              => null,
             'tsbenabled'                  => 0,
+            'allowpasswordinjection'      => 0,
             'blacklistedwindowssoftwares' => null,
             'blacklistedmacsoftwares'     => null,
             'whitelistedwindowssoftwares' => null,
@@ -66,6 +67,28 @@ final class rule_test extends \advanced_testcase {
             'overduehandling'             => 'autosubmit',
             'graceperiod'                 => 0,
         ], $overrides);
+    }
+
+    /**
+     * Build the Proview CDN admin setting used by validator tests.
+     *
+     * @return \admin_setting_configtext_proview_cdn_url
+     */
+    private function make_cdn_setting(): \admin_setting_configtext_proview_cdn_url {
+        global $CFG;
+        require_once($CFG->libdir . '/adminlib.php');
+        if (!class_exists('\admin_setting_configtext_proview_cdn_url')) {
+            $hassiteconfig = false;
+            require_once(__DIR__ . '/../settings.php');
+        }
+
+        return new \admin_setting_configtext_proview_cdn_url(
+            'quizaccess_proview/proview_cdn_url',
+            'CDN URL',
+            '',
+            '',
+            PARAM_URL
+        );
     }
 
     // Tests for validate_reference_links.
@@ -137,6 +160,80 @@ final class rule_test extends \advanced_testcase {
     public function test_validate_reference_links_crlf_line_endings(): void {
         $value = "[A](https://a.example.com)\r\n[B](https://b.example.com)";
         $this->assertTrue(\quizaccess_proview::validate_reference_links($value));
+    }
+
+    // Tests for CDN URL setting validation.
+
+    /**
+     * A trusted Proview host over HTTPS must be valid.
+     */
+    public function test_cdn_https_url_with_trusted_host_is_valid(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate('https://appv7.proview.io/assets/proctor.min.js'));
+    }
+
+    /**
+     * Existing Talview pages host must remain valid for backward compatibility.
+     */
+    public function test_cdn_https_url_with_pages_talview_host_is_valid(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate('https://pages.talview.com/securebrowser/index.html'));
+    }
+
+    /**
+     * Explicit default HTTPS port must be accepted.
+     */
+    public function test_cdn_https_url_with_default_port_is_valid(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate('https://cdn.proview.io:443/sdk.js'));
+    }
+
+    /**
+     * Non-HTTPS URLs must be rejected.
+     */
+    public function test_cdn_http_scheme_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('http://appv7.proview.io/sdk.js'));
+    }
+
+    /**
+     * Non-default ports must be rejected.
+     */
+    public function test_cdn_non_default_https_port_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('https://cdn.proview.io:8443/sdk.js'));
+    }
+
+    /**
+     * Untrusted hosts must be rejected.
+     */
+    public function test_cdn_untrusted_host_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('https://evil.example.com/sdk.js'));
+    }
+
+    /**
+     * URLs with userinfo must be rejected.
+     */
+    public function test_cdn_url_with_userinfo_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('https://user:pass@appv7.proview.io/sdk.js'));
+    }
+
+    /**
+     * Malformed URLs must be rejected.
+     */
+    public function test_cdn_malformed_url_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('not-a-url'));
+    }
+
+    /**
+     * Empty values should pass admin validation to keep install defaults safe.
+     */
+    public function test_cdn_empty_url_is_allowed(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate(''));
     }
 
     // Tests for save_settings: DB upsert.
@@ -230,6 +327,20 @@ final class rule_test extends \advanced_testcase {
 
         $record = $DB->get_record('quizaccess_proview', ['quizid' => 47]);
         $this->assertSame('0', (string) $record->tsbenabled);
+    }
+
+    /**
+     * save_settings() must persist allowpasswordinjection correctly when set to 1.
+     */
+    public function test_save_settings_persists_allowpasswordinjection_true(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $quiz = $this->make_quiz(['id' => 470, 'allowpasswordinjection' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $record = $DB->get_record('quizaccess_proview', ['quizid' => 470]);
+        $this->assertSame('1', (string) $record->allowpasswordinjection);
     }
 
     /**
@@ -384,6 +495,27 @@ final class rule_test extends \advanced_testcase {
         $result = \quizaccess_proview::make($quizobj, time(), false);
 
         $this->assertInstanceOf(\quizaccess_proview::class, $result);
+    }
+
+    /**
+     * make() must not set passwordcheckedquizzes session state.
+     */
+    public function test_make_does_not_set_passwordchecked_session_state(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        unset($SESSION->passwordcheckedquizzes);
+
+        $quizid = 701;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai']);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+
+        \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertFalse(isset($SESSION->passwordcheckedquizzes[$quizid]));
     }
 
     /**
