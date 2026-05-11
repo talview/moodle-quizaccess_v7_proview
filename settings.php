@@ -28,7 +28,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 // Guard class declaration because settings.php may be loaded multiple times.
-if (!class_exists('admin_setting_configtext_proview_cdn_url')) {
+if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
     /**
      * Admin config text setting with Proview CDN URL allowlist validation.
      */
