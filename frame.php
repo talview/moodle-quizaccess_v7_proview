@@ -31,6 +31,10 @@
 
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
+    $hassiteconfig = false;
+    require_once(__DIR__ . '/settings.php');
+}
 
 require_sesskey();
 
@@ -104,7 +108,10 @@ $sessiontypemap = [
 ];
 $sessiontype = $sessiontypemap[$config->proctoringtype] ?? 'ai_proctor';
 
-$cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
+$trustedcdnhosts = \admin_setting_configtext_proview_cdn_url::get_trusted_hosts();
+
+$cdnurl = trim((string) get_config('quizaccess_proview', 'proview_cdn_url'));
+$cdnvalidationerror = !\admin_setting_configtext_proview_cdn_url::is_valid_cdn_url($cdnurl);
 
 $reflinksraw = (string) ($config->referencelinks ?? '');
 $reflinks    = [];
@@ -140,6 +147,15 @@ $jsurlwithflag        = json_encode($urlwithflag);
 $showpasswordnotice   = !empty($quiz->password);
 
 echo $OUTPUT->header();
+
+if ($cdnvalidationerror) {
+    echo $OUTPUT->notification(
+        get_string('proview_cdn_runtime_error', 'quizaccess_proview', implode(', ', $trustedcdnhosts)),
+        \core\output\notification::NOTIFY_ERROR
+    );
+    echo $OUTPUT->footer();
+    return;
+}
 
 $iframesrc = s($urlwithflag);
 $passwordnoticehtml = $showpasswordnotice ? '
