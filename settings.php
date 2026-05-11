@@ -94,12 +94,12 @@ if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
          * @return string|true
          */
         public function validate($data) {
-            $result = parent::validate($data);
-            if ($result !== true) {
-                return $result;
+            $url = trim((string) $data);
+            if ($url === '') {
+                // Keep empty default install-safe; runtime still fails closed.
+                return true;
             }
 
-            $url = trim((string) $data);
             $trustedhosts = self::get_trusted_hosts();
 
             if (!self::is_valid_cdn_url($url)) {
