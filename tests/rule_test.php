@@ -229,11 +229,11 @@ final class rule_test extends \advanced_testcase {
     }
 
     /**
-     * Empty values must be rejected.
+     * Empty values should pass admin validation to keep install defaults safe.
      */
-    public function test_cdn_empty_url_is_rejected(): void {
+    public function test_cdn_empty_url_is_allowed(): void {
         $setting = $this->make_cdn_setting();
-        $this->assertIsString($setting->validate(''));
+        $this->assertTrue($setting->validate(''));
     }
 
     // Tests for save_settings: DB upsert.

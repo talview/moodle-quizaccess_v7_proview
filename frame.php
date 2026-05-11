@@ -31,6 +31,10 @@
 
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
+    $hassiteconfig = false;
+    require_once(__DIR__ . '/settings.php');
+}
 
 require_sesskey();
 
@@ -104,46 +108,10 @@ $sessiontypemap = [
 ];
 $sessiontype = $sessiontypemap[$config->proctoringtype] ?? 'ai_proctor';
 
-$trustedcdnhosts = [
-    'appv7.proview.io',
-    'cdn.proview.io',
-    'static.proview.io',
-    'pages.talview.com',
-];
-
-$isvalidcdnurl = static function (string $url, array $trustedhosts): bool {
-    $url = trim($url);
-    if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
-        return false;
-    }
-
-    $parts = parse_url($url);
-    if ($parts === false) {
-        return false;
-    }
-
-    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-    $host = strtolower((string) ($parts['host'] ?? ''));
-    $port = $parts['port'] ?? null;
-    $hasuserinfo = isset($parts['user']) || isset($parts['pass']);
-
-    if ($scheme !== 'https' || $host === '' || !in_array($host, $trustedhosts, true)) {
-        return false;
-    }
-
-    if ($port !== null && (int) $port !== 443) {
-        return false;
-    }
-
-    if ($hasuserinfo) {
-        return false;
-    }
-
-    return true;
-};
+$trustedcdnhosts = \admin_setting_configtext_proview_cdn_url::get_trusted_hosts();
 
 $cdnurl = trim((string) get_config('quizaccess_proview', 'proview_cdn_url'));
-$cdnvalidationerror = !$isvalidcdnurl($cdnurl, $trustedcdnhosts);
+$cdnvalidationerror = !\admin_setting_configtext_proview_cdn_url::is_valid_cdn_url($cdnurl);
 
 $reflinksraw = (string) ($config->referencelinks ?? '');
 $reflinks    = [];
