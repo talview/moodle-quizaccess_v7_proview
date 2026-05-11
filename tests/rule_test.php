@@ -69,6 +69,28 @@ final class rule_test extends \advanced_testcase {
         ], $overrides);
     }
 
+    /**
+     * Build the Proview CDN admin setting used by validator tests.
+     *
+     * @return \admin_setting_configtext_proview_cdn_url
+     */
+    private function make_cdn_setting(): \admin_setting_configtext_proview_cdn_url {
+        global $CFG;
+        require_once($CFG->libdir . '/adminlib.php');
+        if (!class_exists('\admin_setting_configtext_proview_cdn_url')) {
+            $hassiteconfig = false;
+            require_once(__DIR__ . '/../settings.php');
+        }
+
+        return new \admin_setting_configtext_proview_cdn_url(
+            'quizaccess_proview/proview_cdn_url',
+            'CDN URL',
+            '',
+            '',
+            PARAM_URL
+        );
+    }
+
     // Tests for validate_reference_links.
 
     /**
@@ -138,6 +160,80 @@ final class rule_test extends \advanced_testcase {
     public function test_validate_reference_links_crlf_line_endings(): void {
         $value = "[A](https://a.example.com)\r\n[B](https://b.example.com)";
         $this->assertTrue(\quizaccess_proview::validate_reference_links($value));
+    }
+
+    // Tests for CDN URL setting validation.
+
+    /**
+     * A trusted Proview host over HTTPS must be valid.
+     */
+    public function test_cdn_https_url_with_trusted_host_is_valid(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate('https://appv7.proview.io/assets/proctor.min.js'));
+    }
+
+    /**
+     * Existing Talview pages host must remain valid for backward compatibility.
+     */
+    public function test_cdn_https_url_with_pages_talview_host_is_valid(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate('https://pages.talview.com/securebrowser/index.html'));
+    }
+
+    /**
+     * Explicit default HTTPS port must be accepted.
+     */
+    public function test_cdn_https_url_with_default_port_is_valid(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertTrue($setting->validate('https://cdn.proview.io:443/sdk.js'));
+    }
+
+    /**
+     * Non-HTTPS URLs must be rejected.
+     */
+    public function test_cdn_http_scheme_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('http://appv7.proview.io/sdk.js'));
+    }
+
+    /**
+     * Non-default ports must be rejected.
+     */
+    public function test_cdn_non_default_https_port_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('https://cdn.proview.io:8443/sdk.js'));
+    }
+
+    /**
+     * Untrusted hosts must be rejected.
+     */
+    public function test_cdn_untrusted_host_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('https://evil.example.com/sdk.js'));
+    }
+
+    /**
+     * URLs with userinfo must be rejected.
+     */
+    public function test_cdn_url_with_userinfo_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('https://user:pass@appv7.proview.io/sdk.js'));
+    }
+
+    /**
+     * Malformed URLs must be rejected.
+     */
+    public function test_cdn_malformed_url_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate('not-a-url'));
+    }
+
+    /**
+     * Empty values must be rejected.
+     */
+    public function test_cdn_empty_url_is_rejected(): void {
+        $setting = $this->make_cdn_setting();
+        $this->assertIsString($setting->validate(''));
     }
 
     // Tests for save_settings: DB upsert.

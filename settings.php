@@ -27,6 +27,91 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Admin config text setting with Proview CDN URL allowlist validation.
+ */
+class admin_setting_configtext_proview_cdn_url extends admin_setting_configtext {
+    /** @var string[] Trusted Proview CDN script hosts. */
+    private const TRUSTED_CDN_HOSTS = [
+        'appv7.proview.io',
+        'cdn.proview.io',
+        'static.proview.io',
+        'pages.talview.com',
+    ];
+
+    /**
+     * Return the trusted CDN host allowlist.
+     *
+     * @return string[]
+     */
+    public static function get_trusted_hosts(): array {
+        return self::TRUSTED_CDN_HOSTS;
+    }
+
+    /**
+     * Validate a Proview CDN URL.
+     *
+     * @param string $url URL value to validate.
+     * @return bool True when URL is trusted, false otherwise.
+     */
+    public static function is_valid_cdn_url(string $url): bool {
+        $url = trim($url);
+        if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        $parts = parse_url($url);
+        if ($parts === false) {
+            return false;
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $port = $parts['port'] ?? null;
+        $hasuserinfo = isset($parts['user']) || isset($parts['pass']);
+
+        if ($scheme !== 'https' || $host === '' || !in_array($host, self::TRUSTED_CDN_HOSTS, true)) {
+            return false;
+        }
+
+        if ($port !== null && (int) $port !== 443) {
+            return false;
+        }
+
+        if ($hasuserinfo) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate a config value before saving.
+     *
+     * @param string $data Incoming value from admin form.
+     * @return string|true
+     */
+    public function validate($data) {
+        $result = parent::validate($data);
+        if ($result !== true) {
+            return $result;
+        }
+
+        $url = trim((string) $data);
+        $trustedhosts = self::get_trusted_hosts();
+
+        if (!self::is_valid_cdn_url($url)) {
+            return get_string(
+                'proview_cdn_url_validation_error',
+                'quizaccess_proview',
+                implode(', ', $trustedhosts)
+            );
+        }
+
+        return true;
+    }
+}
+
 if ($hassiteconfig) {
     // Connection settings heading.
     $settings->add(new admin_setting_heading(
@@ -36,7 +121,7 @@ if ($hassiteconfig) {
     ));
 
     // CDN URL.
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new admin_setting_configtext_proview_cdn_url(
         'quizaccess_proview/proview_cdn_url',
         get_string('proview_cdn_url', 'quizaccess_proview'),
         get_string('proview_cdn_url_desc', 'quizaccess_proview'),

@@ -104,7 +104,46 @@ $sessiontypemap = [
 ];
 $sessiontype = $sessiontypemap[$config->proctoringtype] ?? 'ai_proctor';
 
-$cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
+$trustedcdnhosts = [
+    'appv7.proview.io',
+    'cdn.proview.io',
+    'static.proview.io',
+    'pages.talview.com',
+];
+
+$isvalidcdnurl = static function (string $url, array $trustedhosts): bool {
+    $url = trim($url);
+    if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
+        return false;
+    }
+
+    $parts = parse_url($url);
+    if ($parts === false) {
+        return false;
+    }
+
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    $port = $parts['port'] ?? null;
+    $hasuserinfo = isset($parts['user']) || isset($parts['pass']);
+
+    if ($scheme !== 'https' || $host === '' || !in_array($host, $trustedhosts, true)) {
+        return false;
+    }
+
+    if ($port !== null && (int) $port !== 443) {
+        return false;
+    }
+
+    if ($hasuserinfo) {
+        return false;
+    }
+
+    return true;
+};
+
+$cdnurl = trim((string) get_config('quizaccess_proview', 'proview_cdn_url'));
+$cdnvalidationerror = !$isvalidcdnurl($cdnurl, $trustedcdnhosts);
 
 $reflinksraw = (string) ($config->referencelinks ?? '');
 $reflinks    = [];
@@ -140,6 +179,15 @@ $jsurlwithflag        = json_encode($urlwithflag);
 $showpasswordnotice   = !empty($quiz->password);
 
 echo $OUTPUT->header();
+
+if ($cdnvalidationerror) {
+    echo $OUTPUT->notification(
+        get_string('proview_cdn_runtime_error', 'quizaccess_proview', implode(', ', $trustedcdnhosts)),
+        \core\output\notification::NOTIFY_ERROR
+    );
+    echo $OUTPUT->footer();
+    return;
+}
 
 $iframesrc = s($urlwithflag);
 $passwordnoticehtml = $showpasswordnotice ? '
