@@ -32,6 +32,7 @@
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
+    require_once($CFG->libdir . '/adminlib.php');
     $hassiteconfig = false;
     require_once(__DIR__ . '/settings.php');
 }
