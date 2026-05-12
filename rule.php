@@ -342,6 +342,7 @@ class quizaccess_proview extends access_rule_base {
             'allowpasswordinjection',
             get_string('allowpasswordinjection', 'quizaccess_proview')
         );
+        $mform->addHelpButton('allowpasswordinjection', 'allowpasswordinjection', 'quizaccess_proview');
         $mform->setDefault('allowpasswordinjection', 0);
 
         $mform->addElement(

@@ -26,6 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['ai_proctor'] = 'Recorded';
 $string['allowpasswordinjection'] = 'Allow password injection';
+$string['allowpasswordinjection_help'] = 'When enabled, Proview acts as the authentication mechanism and the quiz password is automatically satisfied after the student passes the proctoring hardware check. Enable this only when the quiz password is used solely to gate access to the proctored flow — students will not be prompted to enter it manually.';
 $string['blacklistedmacsoftwares'] = 'Blacklisted macOS applications';
 $string['blacklistedwindowssoftwares'] = 'Blacklisted Windows applications';
 $string['candidateinstructions'] = 'Candidate instructions';
