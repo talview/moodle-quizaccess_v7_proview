@@ -209,12 +209,23 @@ class quizaccess_proview extends access_rule_base {
     public static function make(quiz_settings $quizobj, $timenow, $canignoretimelimits) {
         global $DB;
 
-        \quizaccess_proview\sentry::init();
-
         $record = $DB->get_record('quizaccess_proview', ['quizid' => $quizobj->get_quizid()]);
 
         if (!$record || ($record->proctoringtype === 'none' && empty($record->tsbenabled))) {
             return null;
+        }
+
+        \quizaccess_proview\sentry::init();
+
+        if (!empty($record->allowpasswordinjection)) {
+            global $SESSION;
+            $quiz = $quizobj->get_quiz();
+            if (!empty($quiz->password)) {
+                if (!isset($SESSION->passwordcheckedquizzes)) {
+                    $SESSION->passwordcheckedquizzes = [];
+                }
+                $SESSION->passwordcheckedquizzes[$quiz->id] = true;
+            }
         }
 
         $instance = new self($quizobj, $timenow);
@@ -327,6 +338,7 @@ class quizaccess_proview extends access_rule_base {
             'allowpasswordinjection',
             get_string('allowpasswordinjection', 'quizaccess_proview')
         );
+        $mform->addHelpButton('allowpasswordinjection', 'allowpasswordinjection', 'quizaccess_proview');
         $mform->setDefault('allowpasswordinjection', 0);
 
         $mform->addElement(

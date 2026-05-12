@@ -31,6 +31,11 @@
 
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
+    require_once($CFG->libdir . '/adminlib.php');
+    $hassiteconfig = false;
+    require_once(__DIR__ . '/settings.php');
+}
 
 require_sesskey();
 
@@ -47,6 +52,16 @@ require_login($course, false, $cm);
 
 if (!$cmid) {
     $cmid = $cm->id;
+}
+
+// Inject the quiz password before the access manager runs so that quizaccess_password
+// does not block the student when the teacher has opted in to password injection.
+$allowpasswordinjection = !empty($config->allowpasswordinjection) && !empty($quiz->password);
+if ($allowpasswordinjection) {
+    if (!isset($SESSION->passwordcheckedquizzes)) {
+        $SESSION->passwordcheckedquizzes = [];
+    }
+    $SESSION->passwordcheckedquizzes[$quizid] = true;
 }
 
 $quizobj = \mod_quiz\quiz_settings::create($cm->instance, $USER->id);
@@ -70,13 +85,6 @@ if (!$inprogress) {
     if ($preventnew) {
         redirect(new moodle_url('/mod/quiz/view.php', ['id' => $cmid]), $preventnew);
     }
-}
-
-if (!empty($config->allowpasswordinjection) && !empty($quiz->password)) {
-    if (!isset($SESSION->passwordcheckedquizzes)) {
-        $SESSION->passwordcheckedquizzes = [];
-    }
-    $SESSION->passwordcheckedquizzes[$quizid] = true;
 }
 
 if ($inprogress) {
@@ -104,7 +112,10 @@ $sessiontypemap = [
 ];
 $sessiontype = $sessiontypemap[$config->proctoringtype] ?? 'ai_proctor';
 
-$cdnurl = (string) get_config('quizaccess_proview', 'proview_cdn_url');
+$trustedcdnhosts = \admin_setting_configtext_proview_cdn_url::get_trusted_hosts();
+
+$cdnurl = trim((string) get_config('quizaccess_proview', 'proview_cdn_url'));
+$cdnvalidationerror = !\admin_setting_configtext_proview_cdn_url::is_valid_cdn_url($cdnurl);
 
 $reflinksraw = (string) ($config->referencelinks ?? '');
 $reflinks    = [];
@@ -137,9 +148,18 @@ $jssesskey            = json_encode(sesskey());
 $jsajaxurl            = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/startattempt_ajax.php');
 $jsisnewattempt       = $isnewattempt ? 'true' : 'false';
 $jsurlwithflag        = json_encode($urlwithflag);
-$showpasswordnotice   = !empty($quiz->password);
+$showpasswordnotice   = $allowpasswordinjection;
 
 echo $OUTPUT->header();
+
+if ($cdnvalidationerror) {
+    echo $OUTPUT->notification(
+        get_string('proview_cdn_runtime_error', 'quizaccess_proview', implode(', ', $trustedcdnhosts)),
+        \core\output\notification::NOTIFY_ERROR
+    );
+    echo $OUTPUT->footer();
+    return;
+}
 
 $iframesrc = s($urlwithflag);
 $passwordnoticehtml = $showpasswordnotice ? '
