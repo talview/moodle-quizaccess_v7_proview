@@ -32,6 +32,7 @@
 require_once('../../../../config.php');
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 if (!class_exists('\admin_setting_configtext_proview_cdn_url', false)) {
+    require_once($CFG->libdir . '/adminlib.php');
     $hassiteconfig = false;
     require_once(__DIR__ . '/settings.php');
 }
@@ -76,7 +77,8 @@ if (!$inprogress) {
     }
 }
 
-if (!empty($config->allowpasswordinjection) && !empty($quiz->password)) {
+$allowpasswordinjection = !empty($config->allowpasswordinjection) && !empty($quiz->password);
+if ($allowpasswordinjection) {
     if (!isset($SESSION->passwordcheckedquizzes)) {
         $SESSION->passwordcheckedquizzes = [];
     }
@@ -144,7 +146,7 @@ $jssesskey            = json_encode(sesskey());
 $jsajaxurl            = json_encode($CFG->wwwroot . '/mod/quiz/accessrule/proview/startattempt_ajax.php');
 $jsisnewattempt       = $isnewattempt ? 'true' : 'false';
 $jsurlwithflag        = json_encode($urlwithflag);
-$showpasswordnotice   = !empty($quiz->password);
+$showpasswordnotice   = $allowpasswordinjection;
 
 echo $OUTPUT->header();
 
