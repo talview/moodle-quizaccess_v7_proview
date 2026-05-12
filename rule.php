@@ -217,6 +217,21 @@ class quizaccess_proview extends access_rule_base {
 
         \quizaccess_proview\sentry::init();
 
+        // Inject the quiz password into the session when the teacher has opted in to
+        // password injection.  This must happen here — before prevent_access() evaluates
+        // quizaccess_password — so the password gate is satisfied on view.php,
+        // startattempt.php, and frame.php without the student ever needing to type it.
+        if (!empty($record->allowpasswordinjection)) {
+            global $SESSION;
+            $quiz = $quizobj->get_quiz();
+            if (!empty($quiz->password)) {
+                if (!isset($SESSION->passwordcheckedquizzes)) {
+                    $SESSION->passwordcheckedquizzes = [];
+                }
+                $SESSION->passwordcheckedquizzes[$quiz->id] = true;
+            }
+        }
+
         $instance = new self($quizobj, $timenow);
         $instance->proviewconfig = $record;
         return $instance;

@@ -54,6 +54,16 @@ if (!$cmid) {
     $cmid = $cm->id;
 }
 
+// Inject the quiz password before the access manager runs so that quizaccess_password
+// does not block the student when the teacher has opted in to password injection.
+$allowpasswordinjection = !empty($config->allowpasswordinjection) && !empty($quiz->password);
+if ($allowpasswordinjection) {
+    if (!isset($SESSION->passwordcheckedquizzes)) {
+        $SESSION->passwordcheckedquizzes = [];
+    }
+    $SESSION->passwordcheckedquizzes[$quizid] = true;
+}
+
 $quizobj = \mod_quiz\quiz_settings::create($cm->instance, $USER->id);
 $attempts = quiz_get_user_attempts($quizobj->get_quizid(), $USER->id, 'all', true);
 $lastattempt = end($attempts) ?: false;
@@ -75,14 +85,6 @@ if (!$inprogress) {
     if ($preventnew) {
         redirect(new moodle_url('/mod/quiz/view.php', ['id' => $cmid]), $preventnew);
     }
-}
-
-$allowpasswordinjection = !empty($config->allowpasswordinjection) && !empty($quiz->password);
-if ($allowpasswordinjection) {
-    if (!isset($SESSION->passwordcheckedquizzes)) {
-        $SESSION->passwordcheckedquizzes = [];
-    }
-    $SESSION->passwordcheckedquizzes[$quizid] = true;
 }
 
 if ($inprogress) {
