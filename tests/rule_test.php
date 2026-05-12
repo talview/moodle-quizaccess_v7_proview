@@ -498,7 +498,7 @@ final class rule_test extends \advanced_testcase {
     }
 
     /**
-     * make() must not set passwordcheckedquizzes session state.
+     * make() must not set passwordcheckedquizzes when allowpasswordinjection is disabled (default).
      */
     public function test_make_does_not_set_passwordchecked_session_state(): void {
         global $SESSION;
@@ -512,6 +512,60 @@ final class rule_test extends \advanced_testcase {
 
         $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
         $quizobj->method('get_quizid')->willReturn($quizid);
+
+        \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertFalse(isset($SESSION->passwordcheckedquizzes[$quizid]));
+    }
+
+    /**
+     * make() must inject the quiz password into session when allowpasswordinjection is enabled.
+     * This ensures quizaccess_password is bypassed before prevent_access() evaluates it.
+     */
+    public function test_make_injects_password_when_allowpasswordinjection_enabled(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        unset($SESSION->passwordcheckedquizzes);
+
+        $quizid = 702;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'allowpasswordinjection' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $mockquiz = new \stdClass();
+        $mockquiz->id       = $quizid;
+        $mockquiz->password = 'secret123';
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_quiz')->willReturn($mockquiz);
+
+        \quizaccess_proview::make($quizobj, time(), false);
+
+        $this->assertTrue(isset($SESSION->passwordcheckedquizzes[$quizid]));
+        $this->assertTrue($SESSION->passwordcheckedquizzes[$quizid]);
+    }
+
+    /**
+     * make() must not inject password when allowpasswordinjection is enabled but quiz has no password.
+     */
+    public function test_make_does_not_inject_when_quiz_has_no_password(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        unset($SESSION->passwordcheckedquizzes);
+
+        $quizid = 703;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'allowpasswordinjection' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $mockquiz = new \stdClass();
+        $mockquiz->id       = $quizid;
+        $mockquiz->password = '';
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_quiz')->willReturn($mockquiz);
 
         \quizaccess_proview::make($quizobj, time(), false);
 
