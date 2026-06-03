@@ -299,7 +299,7 @@ class quizaccess_proview extends access_rule_base {
             'proctorinstructions',
             get_string('proctorinstructions', 'quizaccess_proview')
         );
-        $mform->setType('proctorinstructions', PARAM_RAW);
+        $mform->setType('proctorinstructions', PARAM_CLEANHTML);
         $mform->addHelpButton('proctorinstructions', 'proctorinstructions', 'quizaccess_proview');
 
         $mform->addElement(
@@ -307,7 +307,7 @@ class quizaccess_proview extends access_rule_base {
             'candidateinstructions',
             get_string('candidateinstructions', 'quizaccess_proview')
         );
-        $mform->setType('candidateinstructions', PARAM_RAW);
+        $mform->setType('candidateinstructions', PARAM_CLEANHTML);
         $mform->addHelpButton('candidateinstructions', 'candidateinstructions', 'quizaccess_proview');
 
         $mform->addElement(
