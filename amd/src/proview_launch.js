@@ -38,7 +38,36 @@ define([], function() {
         window.location.href = wrapperUrl;
     };
 
+    var hideNavigation = function() {
+        var link = document.querySelector('.tertiary-navigation a');
+        if (link) {
+            link.style.display = 'none';
+        }
+    };
+
+    var redirectToFrameIfTop = function(frameUrl) {
+        if (window.self === window.top) {
+            window.location.replace(frameUrl);
+        }
+    };
+
+    var interceptReviewLinks = function() {
+        if (window.self === window.top) {
+            return;
+        }
+        document.addEventListener('click', function(e) {
+            var a = e.target.closest('a[href]');
+            if (a && a.href.indexOf('/mod/quiz/view.php') !== -1) {
+                e.preventDefault();
+                window.parent.postMessage({type: 'stopProview', url: a.href}, window.location.origin);
+            }
+        });
+    };
+
     return {
         redirectToTsb: redirectToTsb,
+        hideNavigation: hideNavigation,
+        redirectToFrameIfTop: redirectToFrameIfTop,
+        interceptReviewLinks: interceptReviewLinks,
     };
 });
