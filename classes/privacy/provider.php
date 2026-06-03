@@ -27,6 +27,8 @@ namespace quizaccess_proview\privacy;
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\contextlist;
 use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\userlist;
+use core_privacy\local\request\approved_userlist;
 
 /**
  * Privacy provider for quizaccess_proview.
@@ -37,6 +39,7 @@ use core_privacy\local\request\approved_contextlist;
  */
 class provider implements
     \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
     \core_privacy\local\request\plugin\provider {
     /**
      * Return the fields which contain personal data.
@@ -93,6 +96,24 @@ class provider implements
      * @param approved_contextlist $contextlist The approved contexts and user information to delete.
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
+        // No personal data stored locally.
+    }
+
+    /**
+     * Get the list of users who have data within a context.
+     *
+     * @param userlist $userlist The userlist containing the list of users who have data in this context.
+     */
+    public static function get_users_in_context(userlist $userlist): void {
+        // No personal data stored locally — proctoring data held by Talview Proview.
+    }
+
+    /**
+     * Delete multiple users within a single context.
+     *
+     * @param approved_userlist $userlist The approved context and user information to delete.
+     */
+    public static function delete_data_for_users(approved_userlist $userlist): void {
         // No personal data stored locally.
     }
 }
