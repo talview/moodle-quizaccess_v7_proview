@@ -38,7 +38,48 @@ define([], function() {
         window.location.href = wrapperUrl;
     };
 
+    /**
+     * Hide the tertiary navigation back-link on secure quiz pages.
+     */
+    var hideNavigation = function() {
+        var link = document.querySelector('.tertiary-navigation a');
+        if (link) {
+            link.style.display = 'none';
+        }
+    };
+
+    /**
+     * Redirect to the Proview frame URL if the page is not already inside an iframe.
+     *
+     * @param {string} frameUrl The frame.php URL to redirect to.
+     */
+    var redirectToFrameIfTop = function(frameUrl) {
+        if (window.self === window.top) {
+            window.location.replace(frameUrl);
+        }
+    };
+
+    /**
+     * Intercept quiz view links on the review page and notify the parent frame to stop Proview.
+     * Only active when the page is rendered inside an iframe.
+     */
+    var interceptReviewLinks = function() {
+        if (window.self === window.top) {
+            return;
+        }
+        document.addEventListener('click', function(e) {
+            var a = e.target.closest('a[href]');
+            if (a && a.href.indexOf('/mod/quiz/view.php') !== -1) {
+                e.preventDefault();
+                window.parent.postMessage({type: 'stopProview', url: a.href}, window.location.origin);
+            }
+        });
+    };
+
     return {
         redirectToTsb: redirectToTsb,
+        hideNavigation: hideNavigation,
+        redirectToFrameIfTop: redirectToFrameIfTop,
+        interceptReviewLinks: interceptReviewLinks,
     };
 });
