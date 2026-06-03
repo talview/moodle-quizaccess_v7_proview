@@ -722,18 +722,7 @@ class quizaccess_proview extends access_rule_base {
 
         if ($isreview) {
             $page->set_pagelayout('secure');
-            $page->requires->js_amd_inline('
-                (function() {
-                    if (window.self === window.top) { return; }
-                    document.addEventListener("click", function(e) {
-                        var a = e.target.closest("a[href]");
-                        if (a && a.href.indexOf("/mod/quiz/view.php") !== -1) {
-                            e.preventDefault();
-                            window.parent.postMessage({ type: "stopProview", url: a.href }, "*");
-                        }
-                    });
-                })();
-            ');
+            $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'interceptReviewLinks');
             return;
         }
 
@@ -749,15 +738,7 @@ class quizaccess_proview extends access_rule_base {
             $inframe = optional_param('proview_iframe', 0, PARAM_INT);
             if ($inframe) {
                 $page->set_pagelayout('secure');
-                $page->requires->js_amd_inline('
-                    require(["jquery"], function($) {
-                        $(document).ready(function() {
-                            $(".pagelayout-secure").find(
-                                "#region-main > div > div.container-fluid.tertiary-navigation > div > div > a"
-                            ).css("display", "none");
-                        });
-                    });
-                ');
+                $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');
                 return;
             }
 
@@ -777,24 +758,8 @@ class quizaccess_proview extends access_rule_base {
         }
 
         $page->set_pagelayout('secure');
-        $page->requires->js_amd_inline('
-            require(["jquery"], function($) {
-                $(document).ready(function() {
-                    $(".pagelayout-secure").find(
-                        "#region-main > div > div.container-fluid.tertiary-navigation > div > div > a"
-                    ).css("display", "none");
-                });
-            });
-        ');
-
-        $jsfameurl = json_encode($frameurl);
-        $page->requires->js_amd_inline('
-            (function() {
-                if (window.self === window.top) {
-                    window.location.replace(' . $jsfameurl . ');
-                }
-            })();
-        ');
+        $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');
+        $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToFrameIfTop', [$frameurl]);
     }
 
     /**

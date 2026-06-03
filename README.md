@@ -134,6 +134,34 @@ vendor/bin/phpunit --group quizaccess_proview
 vendor/bin/phpunit mod/quiz/accessrule/proview/tests/api_test.php
 ```
 
+### Building AMD modules
+
+Moodle's grunt pipeline is required to build `amd/build/*.min.js` — plain terser/rollup won't produce the correct named AMD format (`define("quizaccess_proview/...", ...)`).
+
+**Prerequisites:** Node 22, a local Moodle 5.x checkout.
+
+```bash
+# 1. Copy the plugin into the Moodle tree (symlinks won't work — grunt resolves
+#    them with fs.realpathSync, which breaks component name lookup)
+cp -r /path/to/moodle-quizaccess_v7_proview \
+      /path/to/moodle/public/mod/quiz/accessrule/proview
+
+# 2. Install Moodle's node dependencies (once)
+cd /path/to/moodle
+npm install
+
+# 3. Build AMD files for the plugin only
+npx grunt amd --root=public/mod/quiz/accessrule/proview
+
+# 4. Copy the built files back
+cp public/mod/quiz/accessrule/proview/amd/build/proview_launch.min.js \
+   /path/to/moodle-quizaccess_v7_proview/amd/build/proview_launch.min.js
+cp public/mod/quiz/accessrule/proview/amd/build/proview_launch.min.js.map \
+   /path/to/moodle-quizaccess_v7_proview/amd/build/proview_launch.min.js.map
+```
+
+Commit both `amd/src/` and `amd/build/` files together. The CI `grunt` step will verify the build is up to date.
+
 ### CI
 
 GitHub Actions runs the full `moodle-plugin-ci` matrix against Moodle 4.5 and 5.1 on every PR to `develop`. Releases are created automatically on merge to `master`.

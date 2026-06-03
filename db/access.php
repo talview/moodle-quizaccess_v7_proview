@@ -26,8 +26,12 @@ defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
     'quizaccess/proview:manage' => [
+        'riskbitmask'  => RISK_CONFIG | RISK_PERSONAL,
         'captype'      => 'write',
         'contextlevel' => CONTEXT_MODULE,
-        'archetypes' => [],
+        'archetypes'   => [
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
     ],
 ];
