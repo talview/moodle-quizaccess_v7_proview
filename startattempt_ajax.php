@@ -65,32 +65,61 @@ foreach ($attempts as $att) {
     }
 }
 
-// Access checks before creating a new attempt.
-$accessmanager = $quizobj->get_access_manager(time());
+$lockfactory = \core\lock\lock_config::get_lock_factory('quizaccess_proview');
+$lock = $lockfactory->get_lock('startattempt_' . $quizid . '_' . $USER->id, 10);
 
-$messages = $accessmanager->prevent_access();
-if ($messages) {
-    http_response_code(403);
-    echo json_encode(['error' => strip_tags(reset($messages))]);
+if (!$lock) {
+    http_response_code(429);
+    echo json_encode(['error' => get_string('locktimeout', 'quizaccess_proview')]);
     exit;
 }
 
-$numattempts = count($attempts);
-$preventnew  = $accessmanager->prevent_new_attempt($numattempts, $lastattempt);
-if ($preventnew) {
-    http_response_code(403);
-    echo json_encode(['error' => strip_tags($preventnew)]);
-    exit;
+try {
+    $attempts    = quiz_get_user_attempts($quizobj->get_quizid(), $USER->id, 'all', true);
+    $lastattempt = end($attempts) ?: false;
+
+    foreach ($attempts as $att) {
+        if (in_array($att->state, ['inprogress', 'overdue'])) {
+            $attempturl = new moodle_url('/mod/quiz/attempt.php', [
+                'attempt' => $att->id,
+                'cmid'    => $cmid,
+            ]);
+            echo json_encode([
+                'url'       => $attempturl->out(false),
+                'attemptno' => (int) $att->attempt,
+            ]);
+            exit;
+        }
+    }
+
+    $accessmanager = $quizobj->get_access_manager(time());
+
+    $messages = $accessmanager->prevent_access();
+    if ($messages) {
+        http_response_code(403);
+        echo json_encode(['error' => strip_tags(reset($messages))]);
+        exit;
+    }
+
+    $numattempts = count($attempts);
+    $preventnew  = $accessmanager->prevent_new_attempt($numattempts, $lastattempt);
+    if ($preventnew) {
+        http_response_code(403);
+        echo json_encode(['error' => strip_tags($preventnew)]);
+        exit;
+    }
+
+    $attempt = quiz_prepare_and_start_new_attempt($quizobj, $numattempts + 1, $lastattempt);
+
+    $attempturl = new moodle_url('/mod/quiz/attempt.php', [
+        'attempt' => $attempt->id,
+        'cmid'    => $cmid,
+    ]);
+
+    echo json_encode([
+        'url'       => $attempturl->out(false),
+        'attemptno' => (int) $attempt->attempt,
+    ]);
+} finally {
+    $lock->release();
 }
-
-$attempt = quiz_prepare_and_start_new_attempt($quizobj, $numattempts + 1, $lastattempt);
-
-$attempturl = new moodle_url('/mod/quiz/attempt.php', [
-    'attempt' => $attempt->id,
-    'cmid'    => $cmid,
-]);
-
-echo json_encode([
-    'url'       => $attempturl->out(false),
-    'attemptno' => (int) $attempt->attempt,
-]);
