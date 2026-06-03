@@ -96,7 +96,26 @@ class provider implements
      * @param approved_contextlist $contextlist The approved contexts and user information to delete.
      */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        // No personal data stored locally.
+        if (empty($contextlist->count())) {
+            return;
+        }
+
+        $user    = $contextlist->get_user();
+        $quizids = [];
+
+        foreach ($contextlist->get_contexts() as $context) {
+            if (!$context instanceof \context_module) {
+                continue;
+            }
+            $cm = get_coursemodule_from_id('quiz', $context->instanceid);
+            if ($cm) {
+                $quizids[] = (int) $cm->instance;
+            }
+        }
+
+        if (!empty($quizids)) {
+            self::send_gdpr_deletion_email([$user->id], $quizids);
+        }
     }
 
     /**
@@ -114,6 +133,48 @@ class provider implements
      * @param approved_userlist $userlist The approved context and user information to delete.
      */
     public static function delete_data_for_users(approved_userlist $userlist): void {
-        // No personal data stored locally.
+        $context = $userlist->get_context();
+
+        if (!$context instanceof \context_module) {
+            return;
+        }
+
+        $userids = $userlist->get_userids();
+        if (empty($userids)) {
+            return;
+        }
+
+        $cm = get_coursemodule_from_id('quiz', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+
+        self::send_gdpr_deletion_email($userids, [(int) $cm->instance]);
+    }
+
+    /**
+     * Send a GDPR deletion request email to Talview support.
+     *
+     * @param int[] $userids  Moodle user IDs whose data should be deleted.
+     * @param int[] $quizids  Quiz IDs associated with those users' proctoring sessions.
+     */
+    private static function send_gdpr_deletion_email(array $userids, array $quizids): void {
+        $noreply              = \core_user::get_noreply_user();
+        $recipient            = \core_user::get_noreply_user();
+        $recipient->email     = 'support@talview.com';
+        $recipient->firstname = 'Talview';
+        $recipient->lastname  = 'Support';
+
+        $a = (object) [
+            'userids' => implode(', ', $userids),
+            'quizids' => implode(', ', $quizids),
+        ];
+
+        email_to_user(
+            $recipient,
+            $noreply,
+            get_string('gdpr_deletion_email_subject', 'quizaccess_proview'),
+            get_string('gdpr_deletion_email_body', 'quizaccess_proview', $a)
+        );
     }
 }

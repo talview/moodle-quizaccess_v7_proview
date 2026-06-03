@@ -31,6 +31,13 @@ $string['blacklistedmacsoftwares'] = 'Blacklisted macOS applications';
 $string['blacklistedwindowssoftwares'] = 'Blacklisted Windows applications';
 $string['candidateinstructions'] = 'Candidate instructions';
 $string['candidateinstructions_help'] = 'Instructions shown to the candidate before the Proview session starts.';
+$string['gdpr_deletion_email_body'] = 'As per GDPR compliance, please delete all Proview proctoring data for the following:
+
+User ID(s): {$a->userids}
+Quiz ID(s): {$a->quizids}
+
+This request was triggered automatically by a Moodle GDPR data deletion workflow.';
+$string['gdpr_deletion_email_subject'] = 'GDPR data deletion request — Talview Proview';
 $string['invalid_reference_links'] = 'Each reference link must be on its own line in the format: [Label](https://example.com)';
 $string['live_proctor'] = 'Live proctoring';
 $string['live_requires_timeclose'] = 'A closing time must be set when live proctoring is enabled.';
