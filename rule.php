@@ -584,7 +584,7 @@ class quizaccess_proview extends access_rule_base {
      * @return bool
      */
     public function is_preflight_check_required($attemptid) {
-        global $CFG;
+        global $CFG, $PAGE;
 
         $context = $this->quizobj->get_context();
         if (has_capability('quizaccess/proview:manage', $context)) {
@@ -595,7 +595,7 @@ class quizaccess_proview extends access_rule_base {
         $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
         $proctored = $this->proviewconfig->proctoringtype !== 'none';
 
-        if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'startattempt.php') {
+        if (basename($PAGE->url->get_path()) === 'startattempt.php') {
             if ($proctored && !($tsb && !$intbs)) {
                 $cm = $this->quizobj->get_cm();
                 redirect(new \moodle_url(
