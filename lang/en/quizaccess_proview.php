@@ -33,7 +33,6 @@ $string['candidateinstructions'] = 'Candidate instructions';
 $string['candidateinstructions_help'] = 'Instructions shown to the candidate before the Proview session starts.';
 $string['invalid_reference_links'] = 'Each reference link must be on its own line in the format: [Label](https://example.com)';
 $string['live_proctor'] = 'Live proctoring';
-$string['locktimeout'] = 'Another attempt is being started. Please try again in a moment.';
 $string['live_requires_timeclose'] = 'A closing time must be set when live proctoring is enabled.';
 $string['live_requires_timeopen'] = 'An opening time must be set when live proctoring is enabled.';
 $string['locktimeout'] = 'Another attempt is being started. Please try again in a moment.';
