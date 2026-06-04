@@ -299,7 +299,7 @@ class quizaccess_proview extends access_rule_base {
             'proctorinstructions',
             get_string('proctorinstructions', 'quizaccess_proview')
         );
-        $mform->setType('proctorinstructions', PARAM_RAW);
+        $mform->setType('proctorinstructions', PARAM_CLEANHTML);
         $mform->addHelpButton('proctorinstructions', 'proctorinstructions', 'quizaccess_proview');
 
         $mform->addElement(
@@ -307,7 +307,7 @@ class quizaccess_proview extends access_rule_base {
             'candidateinstructions',
             get_string('candidateinstructions', 'quizaccess_proview')
         );
-        $mform->setType('candidateinstructions', PARAM_RAW);
+        $mform->setType('candidateinstructions', PARAM_CLEANHTML);
         $mform->addHelpButton('candidateinstructions', 'candidateinstructions', 'quizaccess_proview');
 
         $mform->addElement(
@@ -584,7 +584,7 @@ class quizaccess_proview extends access_rule_base {
      * @return bool
      */
     public function is_preflight_check_required($attemptid) {
-        global $CFG;
+        global $CFG, $PAGE;
 
         $context = $this->quizobj->get_context();
         if (has_capability('quizaccess/proview:manage', $context)) {
@@ -595,7 +595,7 @@ class quizaccess_proview extends access_rule_base {
         $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
         $proctored = $this->proviewconfig->proctoringtype !== 'none';
 
-        if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'startattempt.php') {
+        if (basename($PAGE->url->get_path()) === 'startattempt.php') {
             if ($proctored && !($tsb && !$intbs)) {
                 $cm = $this->quizobj->get_cm();
                 redirect(new \moodle_url(
@@ -722,18 +722,7 @@ class quizaccess_proview extends access_rule_base {
 
         if ($isreview) {
             $page->set_pagelayout('secure');
-            $page->requires->js_amd_inline('
-                (function() {
-                    if (window.self === window.top) { return; }
-                    document.addEventListener("click", function(e) {
-                        var a = e.target.closest("a[href]");
-                        if (a && a.href.indexOf("/mod/quiz/view.php") !== -1) {
-                            e.preventDefault();
-                            window.parent.postMessage({ type: "stopProview", url: a.href }, "*");
-                        }
-                    });
-                })();
-            ');
+            $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'interceptReviewLinks');
             return;
         }
 
@@ -749,15 +738,7 @@ class quizaccess_proview extends access_rule_base {
             $inframe = optional_param('proview_iframe', 0, PARAM_INT);
             if ($inframe) {
                 $page->set_pagelayout('secure');
-                $page->requires->js_amd_inline('
-                    require(["jquery"], function($) {
-                        $(document).ready(function() {
-                            $(".pagelayout-secure").find(
-                                "#region-main > div > div.container-fluid.tertiary-navigation > div > div > a"
-                            ).css("display", "none");
-                        });
-                    });
-                ');
+                $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');
                 return;
             }
 
@@ -777,24 +758,8 @@ class quizaccess_proview extends access_rule_base {
         }
 
         $page->set_pagelayout('secure');
-        $page->requires->js_amd_inline('
-            require(["jquery"], function($) {
-                $(document).ready(function() {
-                    $(".pagelayout-secure").find(
-                        "#region-main > div > div.container-fluid.tertiary-navigation > div > div > a"
-                    ).css("display", "none");
-                });
-            });
-        ');
-
-        $jsfameurl = json_encode($frameurl);
-        $page->requires->js_amd_inline('
-            (function() {
-                if (window.self === window.top) {
-                    window.location.replace(' . $jsfameurl . ');
-                }
-            })();
-        ');
+        $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');
+        $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToFrameIfTop', [$frameurl]);
     }
 
     /**

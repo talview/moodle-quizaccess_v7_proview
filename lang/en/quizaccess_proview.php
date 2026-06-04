@@ -35,6 +35,7 @@ $string['invalid_reference_links'] = 'Each reference link must be on its own lin
 $string['live_proctor'] = 'Live proctoring';
 $string['live_requires_timeclose'] = 'A closing time must be set when live proctoring is enabled.';
 $string['live_requires_timeopen'] = 'An opening time must be set when live proctoring is enabled.';
+$string['locktimeout'] = 'Another attempt is being started. Please try again in a moment.';
 $string['minimizepermitted'] = 'Allow minimise';
 $string['minimizepermitted_help'] = 'When ticked, the candidate may minimise the browser window during the quiz.';
 $string['noproctor'] = 'No proctoring';
