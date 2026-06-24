@@ -51,6 +51,21 @@ define([], function() {
         }
     };
 
+    /**
+     * Redirect to the Proview frame wrapper if this page has loaded outside the iframe.
+     *
+     * Called on every quiz attempt page when the PHP session indicates proview-iframe mode.
+     * Guards against the case where a page URL without proview_iframe=1 is opened directly
+     * at the top level (bypassing frame.php).
+     *
+     * @param {string} frameUrl The frame.php URL to redirect to.
+     */
+    var verifyIframeOrRedirect = function(frameUrl) {
+        if (frameUrl && window.self === window.top) {
+            window.location.replace(frameUrl);
+        }
+    };
+
     var interceptReviewLinks = function() {
         if (window.self === window.top) {
             return;
@@ -69,5 +84,6 @@ define([], function() {
         hideNavigation: hideNavigation,
         redirectToFrameIfTop: redirectToFrameIfTop,
         interceptReviewLinks: interceptReviewLinks,
+        verifyIframeOrRedirect: verifyIframeOrRedirect,
     };
 });

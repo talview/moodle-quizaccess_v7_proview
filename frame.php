@@ -50,6 +50,12 @@ $cm     = get_coursemodule_from_instance('quiz', $quizid, $quiz->course, false, 
 $course = get_course($cm->course);
 require_login($course, false, $cm);
 
+// Persist iframe mode so it survives POST→redirect navigation cycles within the quiz.
+if (!isset($SESSION->proview_iframe_quizids)) {
+    $SESSION->proview_iframe_quizids = [];
+}
+$SESSION->proview_iframe_quizids[(int) $quizid] = true;
+
 if (!$cmid) {
     $cmid = $cm->id;
 }
