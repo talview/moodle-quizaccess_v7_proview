@@ -735,10 +735,17 @@ class quizaccess_proview extends access_rule_base {
         ))->out(false);
 
         if ($isattempt) {
-            $inframe = optional_param('proview_iframe', 0, PARAM_INT);
+            global $SESSION;
+            $inframe = optional_param('proview_iframe', 0, PARAM_INT)
+                || !empty($SESSION->proview_iframe_quizids[(int) $config->quizid]);
             if ($inframe) {
                 $page->set_pagelayout('secure');
                 $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');
+                $page->requires->js_call_amd(
+                    'quizaccess_proview/proview_launch',
+                    'verifyIframeOrRedirect',
+                    [$frameurl]
+                );
                 return;
             }
 
