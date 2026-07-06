@@ -1076,4 +1076,172 @@ final class rule_test extends \advanced_testcase {
         $this->assertStringContainsString('recordings.php', $result[0]);
         $this->assertStringContainsString('cmid=55', $result[0]);
     }
+
+    /**
+     * Stub for setup_attempt_page()'s $page argument.
+     *
+     * @param string $path Page path.
+     * @return object
+     */
+    private function make_page_stub(string $path): object {
+        $requires = new class {
+            /** @var array Recorded js_call_amd() calls. */
+            public array $calls = [];
+
+            /**
+             * Record a js_call_amd() call.
+             *
+             * @param string $module AMD module name.
+             * @param string $func   Exported function name.
+             * @param array  $args   Arguments passed to the function.
+             */
+            public function js_call_amd($module, $func, $args = []) {
+                $this->calls[] = [$module, $func, $args];
+            }
+        };
+        $page = new class ($requires) {
+            /** @var \moodle_url The current page URL. */
+            public $url;
+            /** @var object Stub requirements manager. */
+            public $requires;
+            /** @var string|null The page layout set via set_pagelayout(). */
+            public $pagelayout = null;
+
+            /**
+             * Store the stub requirements manager.
+             *
+             * @param object $requires Stub requirements manager.
+             */
+            public function __construct($requires) {
+                $this->requires = $requires;
+            }
+
+            /**
+             * Record the page layout.
+             *
+             * @param string $layout Page layout name.
+             */
+            public function set_pagelayout($layout) {
+                $this->pagelayout = $layout;
+            }
+        };
+        $page->url = new \moodle_url($path);
+        return $page;
+    }
+
+    /**
+     * A forged proview_iframe=1 request parameter must NOT be trusted on its own —
+     * without the server-set session flag, the request must fall through to the
+     * real server-side redirect, never reaching the "already in iframe" branch
+     * that would otherwise let Moodle render the quiz with no content-blocking.
+     */
+    public function test_setup_attempt_page_ignores_forged_iframe_param(): void {
+        $this->resetAfterTest();
+
+        $quizid = 110;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $_GET['proview_iframe'] = 1;
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        try {
+            $this->expectException(\moodle_exception::class);
+            $rule->setup_attempt_page($page);
+        } finally {
+            unset($_GET['proview_iframe']);
+        }
+    }
+
+    /**
+     * A legitimately server-set session flag (set by frame.php before the quiz
+     * is ever embedded in an iframe) must still be honoured with no request
+     * parameter present at all.
+     */
+    public function test_setup_attempt_page_honours_session_flag_without_param(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        $quizid = 111;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $SESSION->proview_iframe_quizids = [$quizid => true];
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        $rule->setup_attempt_page($page);
+
+        $this->assertSame('secure', $page->pagelayout);
+        $calledfunctions = array_column($page->requires->calls, 1);
+        $this->assertContains('verifyIframeOrRedirect', $calledfunctions);
+    }
+
+    /**
+     * A TSB-required quiz opened outside the Secure Browser must be redirected
+     * server-side (a real redirect()) rather than merely handed a JS redirect
+     * after Moodle has already rendered the full quiz content.
+     */
+    public function test_setup_attempt_page_redirects_server_side_for_tsb(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        $quizid = 112;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('view_url')->willReturn(new \moodle_url('/mod/quiz/view.php', ['id' => 5]));
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        unset($SESSION->proview_iframe_quizids);
+        $origua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (standard browser, not TSB)';
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        try {
+            $this->expectException(\moodle_exception::class);
+            $rule->setup_attempt_page($page);
+        } finally {
+            $_SERVER['HTTP_USER_AGENT'] = $origua;
+        }
+    }
+
+    /**
+     * When the candidate is already inside the Secure Browser (User-Agent carries
+     * the Proview-SB marker), the TSB branch must be skipped and control falls
+     * through to the existing safe redirect into frame.php.
+     */
+    public function test_setup_attempt_page_falls_through_when_already_in_tsb(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        $quizid = 113;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        unset($SESSION->proview_iframe_quizids);
+        $origua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SERVER['HTTP_USER_AGENT'] = 'Proview-SB/1.0';
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        try {
+            $this->expectException(\moodle_exception::class);
+            $rule->setup_attempt_page($page);
+        } finally {
+            $_SERVER['HTTP_USER_AGENT'] = $origua;
+        }
+    }
 }

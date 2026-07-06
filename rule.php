@@ -736,8 +736,7 @@ class quizaccess_proview extends access_rule_base {
 
         if ($isattempt) {
             global $SESSION;
-            $inframe = optional_param('proview_iframe', 0, PARAM_INT)
-                || !empty($SESSION->proview_iframe_quizids[(int) $config->quizid]);
+            $inframe = !empty($SESSION->proview_iframe_quizids[(int) $config->quizid]);
             if ($inframe) {
                 $page->set_pagelayout('secure');
                 $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');
@@ -757,8 +756,7 @@ class quizaccess_proview extends access_rule_base {
                 $tsblink     = 'https://pages.talview.com/securebrowser/index.html'
                              . '?redirect_url=' . urlencode($redirecturl)
                              . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
-                $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$tsblink]);
-                return;
+                redirect(new \moodle_url($tsblink));
             }
 
             redirect(new \moodle_url($frameurl));
