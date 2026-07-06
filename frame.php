@@ -17,12 +17,12 @@
 /**
  * Outer wrapper page that owns the Proview SDK and wraps the quiz attempt in an iframe.
  *
- * Two modes:
+ * Two modes, both deferring the iframe's src until Proview initialises so quiz content
+ * is never fetched before the proctoring session is established:
  *  - New attempt (no in-progress attempt in DB): Proview hardware check runs, then
- *    initCallback creates the attempt via AJAX and reveals the quiz iframe. The quiz
- *    timer therefore starts only after Proview initialises.
- *  - Continue attempt (in-progress attempt exists): Proview hardware check runs,
- *    then initCallback reveals the already-loaded iframe.
+ *    initCallback creates the attempt via AJAX and assigns + reveals the quiz iframe.
+ *  - Continue attempt (in-progress attempt exists): Proview hardware check runs, then
+ *    initCallback assigns the already-known attempt URL to the iframe and reveals it.
  *
  * @package    quizaccess_proview
  * @copyright  2026 Talview Inc.
@@ -167,7 +167,7 @@ if ($cdnvalidationerror) {
     return;
 }
 
-$iframesrc = s($urlwithflag);
+$iframesrc = '';
 $passwordnoticehtml = $showpasswordnotice ? '
 <div id="proview-password-overlay" style="
     position: fixed; inset: 0; z-index: 9999;
@@ -260,6 +260,7 @@ function startProview() {
                     iframe.style.display = 'block';
                 });
             } else {
+                iframe.src = {$jsurlwithflag};
                 iframe.style.display = 'block';
             }
         }
