@@ -736,7 +736,9 @@ class quizaccess_proview extends access_rule_base {
 
         if ($isattempt) {
             global $SESSION;
-            $inframe = !empty($SESSION->proview_iframe_quizids[(int) $config->quizid]);
+            $infetchedframe = ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'iframe';
+            $inframe = $infetchedframe
+                && !empty($SESSION->proview_iframe_quizids[(int) $config->quizid]);
             if ($inframe) {
                 $page->set_pagelayout('secure');
                 $page->requires->js_call_amd('quizaccess_proview/proview_launch', 'hideNavigation');

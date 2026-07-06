@@ -1159,8 +1159,9 @@ final class rule_test extends \advanced_testcase {
 
     /**
      * A legitimately server-set session flag (set by frame.php before the quiz
-     * is ever embedded in an iframe) must still be honoured with no request
-     * parameter present at all.
+     * is ever embedded in an iframe), combined with the browser-set
+     * Sec-Fetch-Dest: iframe header confirming this exact request is genuinely
+     * embedded, must be honoured with no request parameter present at all.
      */
     public function test_setup_attempt_page_honours_session_flag_without_param(): void {
         global $SESSION;
@@ -1175,13 +1176,51 @@ final class rule_test extends \advanced_testcase {
         $rule = \quizaccess_proview::make($quizobj, time(), false);
 
         $SESSION->proview_iframe_quizids = [$quizid => true];
+        $origdest = $_SERVER['HTTP_SEC_FETCH_DEST'] ?? '';
+        $_SERVER['HTTP_SEC_FETCH_DEST'] = 'iframe';
         $page = $this->make_page_stub('/mod/quiz/attempt.php');
 
-        $rule->setup_attempt_page($page);
+        try {
+            $rule->setup_attempt_page($page);
+        } finally {
+            $_SERVER['HTTP_SEC_FETCH_DEST'] = $origdest;
+        }
 
         $this->assertSame('secure', $page->pagelayout);
         $calledfunctions = array_column($page->requires->calls, 1);
         $this->assertContains('verifyIframeOrRedirect', $calledfunctions);
+    }
+
+    /**
+     * A stale session flag left over from a previous frame.php visit must NOT be
+     * trusted on its own for a request that isn't genuinely happening inside an
+     * iframe right now (Sec-Fetch-Dest missing or not "iframe") — e.g. a direct,
+     * top-level hit to attempt.php later in the same session. Must fall through
+     * to the real server-side redirect instead of rendering content.
+     */
+    public function test_setup_attempt_page_ignores_stale_session_flag_outside_iframe(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        $quizid = 114;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $SESSION->proview_iframe_quizids = [$quizid => true];
+        $origdest = $_SERVER['HTTP_SEC_FETCH_DEST'] ?? '';
+        $_SERVER['HTTP_SEC_FETCH_DEST'] = 'document';
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        try {
+            $this->expectException(\moodle_exception::class);
+            $rule->setup_attempt_page($page);
+        } finally {
+            $_SERVER['HTTP_SEC_FETCH_DEST'] = $origdest;
+        }
     }
 
     /**
