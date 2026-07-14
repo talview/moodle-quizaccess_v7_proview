@@ -134,6 +134,7 @@ if (!empty($reflinksraw)) {
 
 $PAGE->set_context(context_module::instance($cm->id));
 $PAGE->set_pagelayout('embedded');
+$PAGE->activityheader->disable();
 $PAGE->set_url(new moodle_url('/mod/quiz/accessrule/proview/frame.php', [
     'quizid'  => $quizid,
     'cmid'    => $cmid,
