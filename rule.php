@@ -98,14 +98,16 @@ class quizaccess_proview extends access_rule_base {
     }
 
     /**
-     * Generate a TSB wrapper URL and schedule a JS redirect to it.
+     * Create a TSB wrapper session via the LMS Connector API and return its signed URL.
      *
-     * Used for both TSB-only (Case 1) from add_preflight_check_form_fields().
+     * Shared by {@see redirect_via_tsb_wrapper()} (preflight page, JS redirect) and
+     * {@see setup_attempt_page()} (attempt page, server-side redirect).
      *
-     * @return void
+     * @param string $redirecturl Full URL the TSB should return the candidate to.
+     * @return string|null Signed wrapper URL, or null on failure (logged via debugging()).
      */
-    private function redirect_via_tsb_wrapper(): void {
-        global $PAGE, $USER, $DB;
+    private function get_tsb_wrapper_url(string $redirecturl): ?string {
+        global $USER, $DB;
 
         $config    = $this->proviewconfig;
         $islive    = $config->proctoringtype === 'live';
@@ -120,24 +122,40 @@ class quizaccess_proview extends access_rule_base {
             $tokenmgr = new \quizaccess_proview\token_manager();
             $token    = $tokenmgr->get_token();
         } catch (\moodle_exception $e) {
-            debugging('[quizaccess_proview] Token fetch failed (TSB preflight): ' . $e->getMessage(), DEBUG_DEVELOPER);
-            return;
+            debugging('[quizaccess_proview] Token fetch failed (TSB wrapper): ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return null;
         }
 
         $closetime = (int) ($this->quizobj->get_quiz()->timeclose ?? 0);
         $expiry    = $closetime > 0 ? $closetime : time() + (3 * DAYSECS);
 
         try {
-            $wrapperurl = \quizaccess_proview\api::create_tsb_wrapper(
+            return \quizaccess_proview\api::create_tsb_wrapper(
                 $token,
                 $sessionid,
                 (string) $USER->id,
-                $PAGE->url->out(false),
+                $redirecturl,
                 $expiry,
                 $this->build_tsb_wrapper_params()
             );
         } catch (\moodle_exception $e) {
             debugging('[quizaccess_proview] TSB wrapper creation failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return null;
+        }
+    }
+
+    /**
+     * Generate a TSB wrapper URL and schedule a JS redirect to it.
+     *
+     * Used for the TSB-only (Case 1) preflight page, from add_preflight_check_form_fields().
+     *
+     * @return void
+     */
+    private function redirect_via_tsb_wrapper(): void {
+        global $PAGE;
+
+        $wrapperurl = $this->get_tsb_wrapper_url($PAGE->url->out(false));
+        if ($wrapperurl === null) {
             return;
         }
 
@@ -715,6 +733,23 @@ class quizaccess_proview extends access_rule_base {
 
         $config    = $this->proviewconfig;
         $proctored = $config->proctoringtype !== 'none';
+        $tsb       = !empty($config->tsbenabled);
+        $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
+
+        // Secure-browser-only quizzes (no Proview proctoring): enforce TSB on the attempt
+        // page too, in case the candidate reached it without going through the preflight
+        // wrapper redirect (e.g. resumed attempt, direct navigation, blocked JS).
+        if ($isattempt && $tsb && !$intbs && !$proctored) {
+            $wrapperurl = $this->get_tsb_wrapper_url($page->url->out(false));
+            if ($wrapperurl !== null) {
+                redirect(new \moodle_url($wrapperurl));
+            }
+
+            $tsblink = 'https://pages.talview.com/securebrowser/index.html'
+                     . '?redirect_url=' . urlencode($this->quizobj->view_url()->out(false))
+                     . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
+            redirect(new \moodle_url($tsblink));
+        }
 
         if (!$proctored) {
             return;
@@ -749,9 +784,6 @@ class quizaccess_proview extends access_rule_base {
                 );
                 return;
             }
-
-            $tsb   = !empty($config->tsbenabled);
-            $intbs = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
 
             if ($tsb && !$intbs) {
                 $redirecturl = $this->quizobj->view_url()->out(false);
