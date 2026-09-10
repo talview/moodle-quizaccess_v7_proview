@@ -145,6 +145,18 @@ class quizaccess_proview extends access_rule_base {
     }
 
     /**
+     * Return the TSB download-page URL used as a fallback when the LMS Connector
+     * API is unavailable or a wrapper session has already been created this session.
+     *
+     * @return string
+     */
+    private function get_tsb_download_url(): string {
+        return 'https://pages.talview.com/securebrowser/index.html'
+             . '?redirect_url=' . urlencode($this->quizobj->view_url()->out(false))
+             . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
+    }
+
+    /**
      * Generate a TSB wrapper URL and schedule a JS redirect to it.
      *
      * Used for the TSB-only (Case 1) preflight page, from add_preflight_check_form_fields().
@@ -683,11 +695,7 @@ class quizaccess_proview extends access_rule_base {
         }
 
         if ($tsb && !$intbs && $proctored) {
-            $redirecturl = $this->quizobj->view_url()->out(false);
-            $tsblink     = 'https://pages.talview.com/securebrowser/index.html'
-                         . '?redirect_url=' . urlencode($redirecturl)
-                         . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
-            $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$tsblink]);
+            $PAGE->requires->js_call_amd('quizaccess_proview/proview_launch', 'redirectToTsb', [$this->get_tsb_download_url()]);
             return;
         }
 
@@ -737,18 +745,21 @@ class quizaccess_proview extends access_rule_base {
         $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
 
         // Secure-browser-only quizzes (no Proview proctoring): enforce TSB on the attempt
-        // page too, in case the candidate reached it without going through the preflight
-        // wrapper redirect (e.g. resumed attempt, direct navigation, blocked JS).
-        if ($isattempt && $tsb && !$intbs && !$proctored) {
-            $wrapperurl = $this->get_tsb_wrapper_url($page->url->out(false));
-            if ($wrapperurl !== null) {
-                redirect(new \moodle_url($wrapperurl));
+        // and summary pages too, in case the candidate reached them without going through
+        // the preflight wrapper redirect (e.g. resumed attempt, direct navigation,
+        // blocked JS). Managers are exempted so quiz preview still works.
+        if (($isattempt || $issummary) && $tsb && !$intbs && !$proctored
+                && !has_capability('quizaccess/proview:manage', $this->quizobj->get_context())) {
+            global $SESSION;
+            $quizid = (int) $config->quizid;
+            if (empty($SESSION->proview_tsb_session_created[$quizid])) {
+                $wrapperurl = $this->get_tsb_wrapper_url($page->url->out(false));
+                if ($wrapperurl !== null) {
+                    $SESSION->proview_tsb_session_created[$quizid] = true;
+                    redirect(new \moodle_url($wrapperurl));
+                }
             }
-
-            $tsblink = 'https://pages.talview.com/securebrowser/index.html'
-                     . '?redirect_url=' . urlencode($this->quizobj->view_url()->out(false))
-                     . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
-            redirect(new \moodle_url($tsblink));
+            redirect(new \moodle_url($this->get_tsb_download_url()));
         }
 
         if (!$proctored) {
@@ -786,11 +797,7 @@ class quizaccess_proview extends access_rule_base {
             }
 
             if ($tsb && !$intbs) {
-                $redirecturl = $this->quizobj->view_url()->out(false);
-                $tsblink     = 'https://pages.talview.com/securebrowser/index.html'
-                             . '?redirect_url=' . urlencode($redirecturl)
-                             . '&user=' . urlencode($_SERVER['HTTP_USER_AGENT'] ?? '');
-                redirect(new \moodle_url($tsblink));
+                redirect(new \moodle_url($this->get_tsb_download_url()));
             }
 
             redirect(new \moodle_url($frameurl));
