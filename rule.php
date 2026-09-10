@@ -748,8 +748,10 @@ class quizaccess_proview extends access_rule_base {
         // and summary pages too, in case the candidate reached them without going through
         // the preflight wrapper redirect (e.g. resumed attempt, direct navigation,
         // blocked JS). Managers are exempted so quiz preview still works.
-        if (($isattempt || $issummary) && $tsb && !$intbs && !$proctored
-                && !has_capability('quizaccess/proview:manage', $this->quizobj->get_context())) {
+        if (
+            ($isattempt || $issummary) && $tsb && !$intbs && !$proctored
+            && !has_capability('quizaccess/proview:manage', $this->quizobj->get_context())
+        ) {
             global $SESSION;
             $quizid = (int) $config->quizid;
             if (empty($SESSION->proview_tsb_session_created[$quizid])) {
