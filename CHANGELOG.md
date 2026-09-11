@@ -11,6 +11,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.1.12] — 2026-09-11
+
+### Fixed
+- Enforce TSB redirect on attempt and summary pages for TSB-only quizzes — prevents candidates from bypassing the secure browser gate via direct URL navigation, resumed attempts, or blocked JS
+- Managers with `quizaccess/proview:manage` (e.g. teachers doing quiz preview) are exempted from the TSB redirect
+- Deduplicate TSB wrapper API calls: a `$SESSION` flag prevents a second API call if the candidate hits attempt.php more than once in the same session
+- Hide activity header on Proview iframe wrapper page (`frame.php`) to avoid duplicate header rendering
+
+### Changed
+- Refactored TSB wrapper URL creation into `get_tsb_wrapper_url()` and `get_tsb_download_url()` private methods, shared between the preflight and attempt-page redirect paths
+
+---
+
 ## [0.1.2] — 2026-03-25
 
 ### Fixed

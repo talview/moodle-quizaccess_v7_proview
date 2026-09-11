@@ -1238,6 +1238,7 @@ final class rule_test extends \advanced_testcase {
 
         $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
         $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_context')->willReturn(\context_system::instance());
         $quizobj->method('view_url')->willReturn(new \moodle_url('/mod/quiz/view.php', ['id' => 5]));
         $rule = \quizaccess_proview::make($quizobj, time(), false);
 
@@ -1281,6 +1282,101 @@ final class rule_test extends \advanced_testcase {
             $rule->setup_attempt_page($page);
         } finally {
             $_SERVER['HTTP_USER_AGENT'] = $origua;
+        }
+    }
+
+    /**
+     * A user with quizaccess/proview:manage (e.g. a teacher doing quiz preview)
+     * must NOT be redirected out of a TSB-only quiz — the capability exempts them.
+     */
+    public function test_setup_attempt_page_skips_tsb_redirect_for_manager(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $quizid = 115;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_context')->willReturn(\context_system::instance());
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $origua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (standard browser, not TSB)';
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        try {
+            $rule->setup_attempt_page($page); // Must NOT redirect (no moodle_exception).
+        } finally {
+            $_SERVER['HTTP_USER_AGENT'] = $origua;
+        }
+
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * Direct navigation to summary.php outside TSB must also redirect — the gate
+     * must not be limited to attempt.php only.
+     */
+    public function test_setup_attempt_page_redirects_server_side_for_tsb_on_summary(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        $quizid = 116;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_context')->willReturn(\context_system::instance());
+        $quizobj->method('view_url')->willReturn(new \moodle_url('/mod/quiz/view.php', ['id' => 5]));
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $origua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (standard browser, not TSB)';
+        $page = $this->make_page_stub('/mod/quiz/summary.php');
+
+        try {
+            $this->expectException(\moodle_exception::class);
+            $rule->setup_attempt_page($page);
+        } finally {
+            $_SERVER['HTTP_USER_AGENT'] = $origua;
+        }
+    }
+
+    /**
+     * When a TSB wrapper session was already created this Moodle session (SESSION
+     * flag set), a second hit to attempt.php must NOT call the API again — it must
+     * fall through directly to the TSB download-page redirect.
+     */
+    public function test_setup_attempt_page_tsb_skips_api_when_session_already_redirected(): void {
+        global $SESSION;
+        $this->resetAfterTest();
+
+        $quizid = 117;
+        $quiz   = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'none', 'tsbenabled' => 1]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_context')->willReturn(\context_system::instance());
+        $quizobj->method('view_url')->willReturn(new \moodle_url('/mod/quiz/view.php', ['id' => 5]));
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $SESSION->proview_tsb_session_created[$quizid] = true;
+
+        $origua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (standard browser, not TSB)';
+        $page = $this->make_page_stub('/mod/quiz/attempt.php');
+
+        try {
+            // Still redirects (to the download page), just without hitting the API.
+            $this->expectException(\moodle_exception::class);
+            $rule->setup_attempt_page($page);
+        } finally {
+            $_SERVER['HTTP_USER_AGENT'] = $origua;
+            unset($SESSION->proview_tsb_session_created[$quizid]);
         }
     }
 }
