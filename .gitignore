@@ -7,8 +7,6 @@ vendor/
 
 # Node / AMD build artefacts
 node_modules/
-amd/build/attempt_recordings.min.js
-amd/build/attempt_recordings.min.js.map
 
 # PHPUnit / Behat
 .phpunit.result.cache
