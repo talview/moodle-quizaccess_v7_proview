@@ -37,7 +37,8 @@ define(['jquery'], function($) {
             return;
         }
         document.getElementById('proview-recording-iframe').src = url;
-        if (window.bootstrap && window.bootstrap.Modal) {
+        if (window.bootstrap && window.bootstrap.Modal &&
+                typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
             window.bootstrap.Modal.getOrCreateInstance(modal).show();
         } else {
             $(modal).modal('show');
