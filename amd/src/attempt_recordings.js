@@ -37,11 +37,18 @@ define(['jquery'], function($) {
             return;
         }
         document.getElementById('proview-recording-iframe').src = url;
-        $(modal).modal('show');
+        if (window.bootstrap && window.bootstrap.Modal &&
+                typeof window.bootstrap.Modal.getOrCreateInstance === 'function') {
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
+        } else {
+            $(modal).modal('show');
+        }
     }
 
-    $(document).on('hidden.bs.modal', '#proview-recording-modal', function() {
-        document.getElementById('proview-recording-iframe').src = 'about:blank';
+    document.addEventListener('hidden.bs.modal', function(e) {
+        if (e.target && e.target.id === 'proview-recording-modal') {
+            document.getElementById('proview-recording-iframe').src = 'about:blank';
+        }
     });
 
     /**
