@@ -11,6 +11,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.1.13] — 2026-09-18
+
+### Fixed
+- Updated the recording playback modal to use Bootstrap 5 dismissal attributes and close-button styling, restoring the top-right close button and reliable modal dismissal
+- Updated the recording playback JavaScript to use the Bootstrap 5 modal API with a jQuery fallback and native `hidden.bs.modal` handling
+- Reset the recording iframe to `about:blank` when the playback modal closes
+
 ## [0.1.12] — 2026-09-11
 
 ### Fixed
