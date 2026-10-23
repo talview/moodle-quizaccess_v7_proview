@@ -866,18 +866,76 @@ final class rule_test extends \advanced_testcase {
         $quizobj->method('get_quizid')->willReturn($quizid);
         $rule = \quizaccess_proview::make($quizobj, time(), false);
 
-        // Simulate being called from startattempt.php with a standard browser UA.
-        $origscript = $_SERVER['SCRIPT_FILENAME'] ?? '';
-        $origua     = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $_SERVER['SCRIPT_FILENAME'] = '/var/www/html/moodle/mod/quiz/startattempt.php';
+        // SCRIPT_NAME is the primary signal; keep SCRIPT_FILENAME different so
+        // this also proves the code does not accidentally rely on the fallback.
+        $origscriptname = $_SERVER['SCRIPT_NAME'] ?? null;
+        $origscriptfile = $_SERVER['SCRIPT_FILENAME'] ?? null;
+        $origua         = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        $_SERVER['SCRIPT_NAME'] = '/mod/quiz/startattempt.php';
+        $_SERVER['SCRIPT_FILENAME'] = '/var/www/html/moodle/mod/quiz/view.php';
         $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (standard browser, not TSB)';
 
-        $result = $rule->is_preflight_check_required(null);
-
-        $_SERVER['SCRIPT_FILENAME'] = $origscript;
-        $_SERVER['HTTP_USER_AGENT'] = $origua;
+        try {
+            $result = $rule->is_preflight_check_required(null);
+        } finally {
+            if ($origscriptname === null) {
+                unset($_SERVER['SCRIPT_NAME']);
+            } else {
+                $_SERVER['SCRIPT_NAME'] = $origscriptname;
+            }
+            if ($origscriptfile === null) {
+                unset($_SERVER['SCRIPT_FILENAME']);
+            } else {
+                $_SERVER['SCRIPT_FILENAME'] = $origscriptfile;
+            }
+            if ($origua === null) {
+                unset($_SERVER['HTTP_USER_AGENT']);
+            } else {
+                $_SERVER['HTTP_USER_AGENT'] = $origua;
+            }
+        }
 
         $this->assertTrue($result);
+    }
+
+    /**
+     * Managers still pass through the startattempt preflight redirect for a
+     * proctored quiz; the capability exemption applies to the TSB-only gate on
+     * the attempt page, not to Proview's preflight flow.
+     */
+    public function test_preflight_redirects_manager_on_startattempt(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $quizid = 83;
+        $quiz = $this->make_quiz(['id' => $quizid, 'proctoringtype' => 'ai', 'tsbenabled' => 0]);
+        \quizaccess_proview::save_settings($quiz);
+
+        $quizobj = $this->createMock(\mod_quiz\quiz_settings::class);
+        $quizobj->method('get_quizid')->willReturn($quizid);
+        $quizobj->method('get_cm')->willReturn((object) ['id' => 42]);
+        $rule = \quizaccess_proview::make($quizobj, time(), false);
+
+        $origscriptname = $_SERVER['SCRIPT_NAME'] ?? null;
+        $origscriptfile = $_SERVER['SCRIPT_FILENAME'] ?? null;
+        $_SERVER['SCRIPT_NAME'] = '/mod/quiz/startattempt.php';
+        $_SERVER['SCRIPT_FILENAME'] = '/var/www/html/moodle/mod/quiz/view.php';
+
+        try {
+            $this->expectException(\moodle_exception::class);
+            $rule->is_preflight_check_required(null);
+        } finally {
+            if ($origscriptname === null) {
+                unset($_SERVER['SCRIPT_NAME']);
+            } else {
+                $_SERVER['SCRIPT_NAME'] = $origscriptname;
+            }
+            if ($origscriptfile === null) {
+                unset($_SERVER['SCRIPT_FILENAME']);
+            } else {
+                $_SERVER['SCRIPT_FILENAME'] = $origscriptfile;
+            }
+        }
     }
 
     /**
