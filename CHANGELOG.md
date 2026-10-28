@@ -9,6 +9,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.14] — 2026-10-28
+
+### Fixed
+- Detect `startattempt.php` using the executing script name so Proview preflight checks run before Moodle creates the attempt and starts its timer
+- Preserve the Proview preflight redirect for managers on proctored quizzes
+
+### Added
+- Regression coverage for script-name detection and manager redirects (PR #87)
+
 ---
 
 ## [0.1.13] — 2026-09-18
