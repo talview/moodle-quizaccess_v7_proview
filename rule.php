@@ -614,18 +614,22 @@ class quizaccess_proview extends access_rule_base {
      * @return bool
      */
     public function is_preflight_check_required($attemptid) {
-        global $CFG, $PAGE;
-
-        $context = $this->quizobj->get_context();
-        if (has_capability('quizaccess/proview:manage', $context)) {
-            return false;
-        }
+        global $CFG;
 
         $tsb       = !empty($this->proviewconfig->tsbenabled);
         $intbs     = strpos($_SERVER['HTTP_USER_AGENT'] ?? '', 'Proview-SB') !== false;
         $proctored = $this->proviewconfig->proctoringtype !== 'none';
 
-        if (basename($PAGE->url->get_path()) === 'startattempt.php') {
+        // Moodle sets $PAGE->url to the quiz view URL while processing
+        // startattempt.php, so $PAGE->url cannot be used to identify this
+        // request. Use the actual executing script instead; otherwise Moodle
+        // creates the attempt (and starts its timer) before Proview runs.
+        $scriptname = $_SERVER['SCRIPT_NAME'] ?? '';
+        if ($scriptname === '') {
+            $scriptname = $_SERVER['SCRIPT_FILENAME'] ?? '';
+        }
+
+        if (basename($scriptname) === 'startattempt.php') {
             if ($proctored && !($tsb && !$intbs)) {
                 $cm = $this->quizobj->get_cm();
                 redirect(new \moodle_url(
