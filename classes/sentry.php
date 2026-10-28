@@ -34,7 +34,7 @@ namespace quizaccess_proview;
  */
 class sentry {
     /** @var string Sentry DSN for the quizaccess_proview project. */
-    const DSN = 'https://070e04ad3039bad6c35fe0ee09672aed@sentry.talview.org/175';
+    const DSN = 'https://ced7a8a24d06c338fe913f68ae4d56d3@sentry.talview.com/380';
 
     /** @var bool Whether the SDK has been successfully initialised. */
     private static bool $initialized = false;
